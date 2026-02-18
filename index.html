@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Testimoniale Metro C</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #000000);
+    --hint: var(--tg-theme-hint-color, #999999);
+    --link: var(--tg-theme-link-color, #2481cc);
+    --btn: var(--tg-theme-button-color, #2481cc);
+    --btn-text: var(--tg-theme-button-text-color, #ffffff);
+    --secondary-bg: var(--tg-theme-secondary-bg-color, #f0f0f0);
+    --section-bg: var(--tg-theme-section-bg-color, #ffffff);
+    --section-header: var(--tg-theme-section-header-text-color, #6d6d72);
+    --separator: var(--tg-theme-section-separator-color, #e0e0e0);
+    --destructive: var(--tg-theme-destructive-text-color, #ff3b30);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --header-h: 52px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+html, body { height: 100%; overflow: hidden; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px; line-height: 1.4;
+    background-color: var(--secondary-bg); color: var(--text);
+    display: flex; flex-direction: column;
+    -webkit-tap-highlight-color: transparent;
+}
+#app-header {
+    display: flex; align-items: center; height: var(--header-h);
+    padding: 0 12px; background: var(--bg);
+    border-bottom: 0.5px solid var(--separator); flex-shrink: 0; z-index: 100;
+}
+#header-title {
+    flex: 1; font-size: 17px; font-weight: 600; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.header-btn {
+    background: none; border: none; color: var(--link); cursor: pointer;
+    padding: 8px; display: flex; align-items: center; justify-content: center; min-width: 40px;
+}
+.sync-dot { width: 10px; height: 10px; border-radius: 50%; min-width: 10px; margin-left: 8px; }
+.sync-dot.online { background: #34c759; }
+.sync-dot.offline { background: #ff9500; }
+.sync-dot.syncing { background: #007aff; animation: pulse 1s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+#app-content {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; padding-bottom: var(--safe-bottom);
+}
+.section { margin: 16px 0; }
+.section-header {
+    font-size: 13px; font-weight: 400; color: var(--section-header);
+    text-transform: uppercase; padding: 0 16px 8px;
+}
+.section-body {
+    background: var(--section-bg);
+    border-top: 0.5px solid var(--separator); border-bottom: 0.5px solid var(--separator);
+}
+.cell {
+    display: flex; align-items: center; padding: 12px 16px; min-height: 44px;
+    cursor: pointer; transition: background 0.15s; position: relative;
+}
+.cell:active { background: var(--secondary-bg); }
+.cell + .cell { border-top: 0.5px solid var(--separator); margin-left: 16px; padding-left: 0; }
+.cell-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; margin-right: 12px; flex-shrink: 0;
+}
+.cell-body { flex: 1; min-width: 0; }
+.cell-title { font-size: 15px; font-weight: 400; }
+.cell-subtitle { font-size: 13px; color: var(--hint); margin-top: 2px; }
+.cell-chevron { color: var(--hint); margin-left: 8px; flex-shrink: 0; }
+.cell-badge {
+    background: var(--btn); color: var(--btn-text); font-size: 12px; font-weight: 600;
+    padding: 2px 8px; border-radius: 10px; margin-left: 8px;
+}
+.btn {
+    display: flex; align-items: center; justify-content: center; width: 100%;
+    padding: 14px 20px; border: none; border-radius: var(--radius);
+    font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+}
+.btn:active { opacity: 0.7; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--btn); color: var(--btn-text); }
+.btn-secondary { background: var(--secondary-bg); color: var(--text); }
+.btn-destructive { background: transparent; color: var(--destructive); }
+.btn-outline { background: transparent; border: 1.5px solid var(--btn); color: var(--btn); }
+.btn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 12px 16px; }
+.btn-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.btn-grid .btn-choice {
+    padding: 12px 8px; border: 1.5px solid var(--separator); border-radius: var(--radius-sm);
+    background: var(--section-bg); color: var(--text); font-size: 14px; font-weight: 500;
+    text-align: center; cursor: pointer; transition: all 0.15s; word-break: break-word;
+}
+.btn-choice:active, .btn-choice.selected {
+    background: var(--btn); color: var(--btn-text); border-color: var(--btn);
+}
+.btn-choice.completed { border-color: #34c759; position: relative; }
+.btn-choice.completed::after {
+    content: '\2713'; position: absolute; top: 4px; right: 6px; font-size: 11px; color: #34c759;
+}
+.form-group { padding: 12px 16px; }
+.form-label { display: block; font-size: 13px; color: var(--section-header); text-transform: uppercase; margin-bottom: 8px; }
+.form-input {
+    width: 100%; padding: 12px; border: 1.5px solid var(--separator); border-radius: var(--radius-sm);
+    background: var(--section-bg); color: var(--text); font-size: 16px; font-family: inherit;
+    outline: none; transition: border-color 0.15s;
+}
+.form-input:focus { border-color: var(--btn); }
+.form-input::placeholder { color: var(--hint); }
+textarea.form-input { resize: vertical; min-height: 80px; }
+.stepper { display: flex; align-items: center; justify-content: center; padding: 12px 16px; gap: 4px; }
+.stepper-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--separator); transition: all 0.2s; }
+.stepper-dot.active { background: var(--btn); width: 24px; border-radius: 4px; }
+.stepper-dot.done { background: #34c759; }
+.menu-group { margin: 8px 0; }
+.menu-group-title { font-size: 13px; font-weight: 600; color: var(--section-header); padding: 8px 16px 4px; }
+.menu-group-items { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 16px 8px; }
+.menu-chip {
+    padding: 8px 14px; border: 1px solid var(--separator); border-radius: 20px;
+    background: var(--section-bg); color: var(--text); font-size: 13px;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.menu-chip:active, .menu-chip.selected { background: var(--btn); color: var(--btn-text); border-color: var(--btn); }
+.menu-chip.check { padding-left: 12px; }
+.menu-chip.check.selected::before { content: '\2713 '; }
+.photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 8px 16px; }
+.photo-thumb { aspect-ratio: 1; border-radius: var(--radius-sm); overflow: hidden; position: relative; cursor: pointer; }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.photo-add {
+    display: flex; align-items: center; justify-content: center; background: var(--secondary-bg);
+    border: 2px dashed var(--separator); border-radius: var(--radius-sm); aspect-ratio: 1;
+    cursor: pointer; color: var(--hint); font-size: 28px;
+}
+.photo-add:active { opacity: 0.6; }
+.obs-card { background: var(--section-bg); border-radius: var(--radius-sm); padding: 12px; margin: 6px 16px; border-left: 3px solid var(--btn); }
+.obs-card-element { font-size: 12px; font-weight: 600; color: var(--link); text-transform: uppercase; margin-bottom: 4px; }
+.obs-card-text { font-size: 14px; line-height: 1.4; }
+.obs-card-photo { font-size: 12px; color: var(--hint); margin-top: 4px; }
+.status-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
+.status-accessible { background: #e8f5e9; color: #2e7d32; }
+.status-non_accessibile { background: #fff3e0; color: #e65100; }
+.status-non_valutabile { background: #fce4ec; color: #c62828; }
+.status-non_autorizzato { background: #f3e5f5; color: #6a1b9a; }
+.status-completed { background: #e8f5e9; color: #2e7d32; }
+.status-in_progress { background: #e3f2fd; color: #1565c0; }
+.toast {
+    position: fixed; bottom: calc(20px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
+    background: var(--text); color: var(--bg); padding: 10px 20px; border-radius: 20px;
+    font-size: 14px; font-weight: 500; z-index: 1000; transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+}
+.toast.hidden { opacity: 0; transform: translateX(-50%) translateY(20px); }
+.modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 500;
+    display: flex; align-items: flex-end; justify-content: center;
+}
+.modal-overlay.hidden { display: none; }
+.modal-content {
+    background: var(--bg); border-radius: var(--radius) var(--radius) 0 0;
+    width: 100%; max-width: 500px; max-height: 80vh; overflow-y: auto;
+    padding: 20px 16px calc(20px + var(--safe-bottom)); animation: slideUp 0.25s ease-out;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-title { font-size: 18px; font-weight: 600; text-align: center; margin-bottom: 16px; }
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 32px; text-align: center; }
+.empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+.empty-state-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+.empty-state-text { font-size: 14px; color: var(--hint); }
+.hidden { display: none !important; }
+.px-16 { padding-left: 16px; padding-right: 16px; }
+.py-12 { padding-top: 12px; padding-bottom: 12px; }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-16 { margin-bottom: 16px; }
+.text-center { text-align: center; }
+.text-hint { color: var(--hint); font-size: 13px; }
+.text-link { color: var(--link); }
+.gap-8 { gap: 8px; }
+.flex-col { display: flex; flex-direction: column; }
+.wizard-header { padding: 16px; text-align: center; }
+.wizard-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.wizard-subtitle { font-size: 13px; color: var(--hint); }
+.preview-box {
+    background: var(--secondary-bg); border-radius: var(--radius-sm); padding: 12px 16px;
+    margin: 8px 16px; font-size: 14px; line-height: 1.5; font-style: italic;
+    color: var(--text); border-left: 3px solid var(--link);
+}
+#app-content::-webkit-scrollbar { width: 0; }
+.phase-tabs { display: flex; background: var(--section-bg); border-bottom: 0.5px solid var(--separator); }
+.phase-tab {
+    flex: 1; padding: 10px; text-align: center; font-size: 13px; font-weight: 500;
+    color: var(--hint); border: none; background: none; cursor: pointer;
+    border-bottom: 2px solid transparent; transition: all 0.2s;
+}
+.phase-tab.active { color: var(--btn); border-bottom-color: var(--btn); }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div id="app-header">
+        <button class="header-btn hidden" id="btn-back" onclick="history.back()">&#8249;</button>
+        <div id="header-title">Testimoniale</div>
+        <div class="sync-dot offline" id="sync-indicator" title="Offline"></div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="app-content"></div>
+
+    <!-- Toast -->
+    <div class="toast hidden" id="toast"></div>
+
+    <!-- Modal -->
+    <div class="modal-overlay hidden" id="modal-overlay">
+        <div class="modal-content" id="modal-content"></div>
+    </div>
+
+<script>
+// ==================== CONFIG ====================
+const CONFIG = {
+    UNIT_TYPES: ['Abitazione', 'Ufficio', 'Negozio', 'Garage', 'Cantina', 'Soffitta', 'Parti Comuni'],
+    ROOM_TYPES: ['INGRESSO', 'STANZA', 'DISIMPEGNO', 'CORRIDOIO', 'BAGNO', 'SOGGIORNO', 'SALONE', 'CUCINA', 'DEPOSITO', 'UFFICIO'],
+    CEIL_TYPES: ['Controsoffitto', 'Niente'],
+    ELEMENTS: ['Parete', 'Soffitto', 'Pavimento', 'Infisso', 'Balcone', 'Cornice'],
+    REQUIRED_SURFACES: ['Parete A', 'Parete B', 'Parete C', 'Parete D', 'Soffitto', 'Pavimento'],
+    WALL_LABELS: ['Parete A', 'Parete B', 'Parete C', 'Parete D'],
+    FLOORS: ['Interrato', 'Piano Terra', 'Piano 1', 'Piano 2', 'Piano 3', 'Piano 4', 'Piano 5', 'Copertura'],
+    STAIRS: ['Scala A', 'Scala B', 'Scala C', 'Scala D', 'Scala Unica'],
+    PRE_CHECK: ['NDR', 'INGOMBRA', 'PROCEDI'],
+    POS_WALL_MENUS: {
+        'LOCALIZZAZIONE DIRETTA': ['a DX', 'a SX', 'al centro', 'nella parte apicale', 'nella parte apicale a DX', 'nella parte apicale a SX', 'al piede', 'al piede a DX', 'al piede a SX'],
+        'DIEDRI (DD)': ['a partire da DD alto DX', 'a partire da DD alto SX', 'a partire da DD basso DX', 'a partire da DD basso SX', 'a partire da DD (Generico) VT', 'a partire da DD (Generico) OZ', 'in corrispondenza DD'],
+        'APERTURE / PTB': ['al di sopra PTB', 'a partire da PTB', 'PTB varco di passaggio al centro', 'PTB porta al centro', 'in corrispondenza varco di passaggio', 'in corrispondenza porta'],
+        'ALTRI RIFERIMENTI': ['a partire da rivestimento', 'a partire da intradosso', 'a partire da travetto']
+    },
+    POS_CEIL: ['Intera Superficie', 'Porzione Lato SX', 'Porzione Lato DX', 'Centro', 'Centro Alto', 'Centro Basso', 'presso varco di passaggio'],
+    POS_FLOOR: ['Intera Superficie', 'Porzione Lato SX', 'Porzione Lato DX', 'Centro', 'presso varco di passaggio', 'al centro del vano'],
+    PHEN_WALL_MENUS: {
+        'FESSURAZIONI SEMPLICI': ['Filatura', 'Filatura capillare', 'Filatura evidente', 'Filatura discontinua', 'Microlesione', 'Lesione', 'Lesione diagonale'],
+        'FESSURAZIONI COMPOSTE': ['Serie di filature', 'Filatura OZ con ramificazioni VT', 'Filatura VT con ramificazioni OZ', 'Filatura pseudo VT con laminazione'],
+        'PATOLOGIE': ['Macchia', 'Macchia di umidit\u00e0', 'Umidit\u00e0 con efflorescenza', 'Distacco', 'Distacco di intonaco', 'Esfoliazione d\'intonaco', 'Gonfiamento', 'Scrostatura'],
+        'DANNI PUNTUALI / ALTRO': ['Mancanza', 'Lacuna di materiale', 'Efflorescenza', 'Colonizzazione biologica', 'Non Visibile', 'NESSUN DIFETTO']
+    },
+    PHEN_CEIL: ['NESSUN DIFETTO', 'Non Visibile', 'Macchia', 'Umidit\u00e0', 'Distacco', 'Lesione', 'Filatura', 'Gonfiamento', 'Distacco di intonaco', 'Esfoliazione d\'intonaco'],
+    PHEN_FLOOR: ['NESSUN DIFETTO', 'Non Visibile', 'Distacco', 'Rottura', 'Macchia', 'Filatura', 'Avvallamento', 'Lacuna di materiale'],
+    PHEN_INFISSO: ['NESSUN DIFETTO', 'Non Visibile', 'Filatura', 'Mancanza', 'Non Funzionante', 'Rotta', 'Vetro incrinato', 'Telaio degradato'],
+    PHEN_GENERIC: ['NESSUN DIFETTO', 'Non Visibile', 'Distacco', 'Rottura', 'Macchia'],
+    INFISSO_TYPES: ['finestra', 'porta finestra', 'porta interna', 'porta ingresso', 'apertura', 'apertura ad arco', 'lucernario'],
+    INFISSO_DETAILS: ['Soglia', 'Intradosso', 'Stipite DX', 'Stipite SX', 'Anta', 'Vetro', 'Telaio', 'Davanzale', 'Cassonetto', 'Imbotte'],
+    POS_GENERIC: ['Intera Superficie', 'Porzione'],
+    ATTRIBUTES_MENUS: {
+        'ORIENTAMENTO': ['VT (Verticale)', 'OZ (Orizzontale)', 'DG (Diagonale)', 'DG alto SX', 'DG alto DX', 'DG basso SX', 'DG basso DX', 'pseudo VT', 'pseudo OZ', 'trasversale', 'a tutta H', 'breve estensione'],
+        'SPECIFICHE DIFETTO': ['Capillare', 'Passante', 'A Ragnatela', 'Evidente', 'Discontinua', 'Ultimo Tratto (UT)', 'Diedro (DD)', 'SX', 'DX', 'Alto', 'Basso', 'Vetro', 'Telaio']
+    },
+    ROOM_STATUSES: ['accessible', 'non_accessibile', 'non_valutabile', 'non_autorizzato'],
+    ROOM_STATUS_LABELS: { accessible: 'Accessibile', non_accessibile: 'Non Accessibile', non_valutabile: 'Non Valutabile', non_autorizzato: 'Non Autorizzato' },
+    getPositions(element) {
+        switch (element) {
+            case 'Parete': return null;
+            case 'Soffitto': return this.POS_CEIL;
+            case 'Pavimento': return this.POS_FLOOR;
+            case 'Infisso': return this.WALL_LABELS;
+            case 'Balcone': case 'Cornice': return this.POS_GENERIC;
+            default: return this.POS_GENERIC;
+        }
+    },
+    getPhenomena(element) {
+        switch (element) {
+            case 'Parete': return null;
+            case 'Soffitto': return this.PHEN_CEIL;
+            case 'Pavimento': return this.PHEN_FLOOR;
+            case 'Infisso': return this.PHEN_INFISSO;
+            case 'Balcone': case 'Cornice': return this.PHEN_GENERIC;
+            default: return this.PHEN_GENERIC;
+        }
+    }
+};
+
+// ==================== DB ====================
+const DB = {
+    _db: null, DB_NAME: 'testimoniale_db', DB_VERSION: 1,
+    async open() {
+        if (this._db) return this._db;
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('events')) {
+                    const evStore = db.createObjectStore('events', { keyPath: 'id', autoIncrement: true });
+                    evStore.createIndex('sopralluogo_id', 'sopralluogo_id', { unique: false });
+                    evStore.createIndex('type', 'type', { unique: false });
+                    evStore.createIndex('timestamp', 'timestamp', { unique: false });
+                }
+                if (!db.objectStoreNames.contains('sopralluoghi')) {
+                    const sopStore = db.createObjectStore('sopralluoghi', { keyPath: 'id' });
+                    sopStore.createIndex('building_code', 'building_code', { unique: false });
+                    sopStore.createIndex('synced', 'synced', { unique: false });
+                    sopStore.createIndex('created_at', 'created_at', { unique: false });
+                }
+                if (!db.objectStoreNames.contains('photos')) {
+                    const photoStore = db.createObjectStore('photos', { keyPath: 'id' });
+                    photoStore.createIndex('sopralluogo_id', 'sopralluogo_id', { unique: false });
+                    photoStore.createIndex('room_name', 'room_name', { unique: false });
+                    photoStore.createIndex('type', 'type', { unique: false });
+                    photoStore.createIndex('synced', 'synced', { unique: false });
+                }
+            };
+            request.onsuccess = (e) => { this._db = e.target.result; resolve(this._db); };
+            request.onerror = (e) => { console.error('IndexedDB open error:', e.target.error); reject(e.target.error); };
+        });
+    },
+    _tx(storeName, mode = 'readonly') { return this._db.transaction(storeName, mode).objectStore(storeName); },
+    async add(storeName, data) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const store = this._db.transaction(storeName, 'readwrite').objectStore(storeName);
+            const r = store.add(data); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
+        });
+    },
+    async put(storeName, data) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const store = this._db.transaction(storeName, 'readwrite').objectStore(storeName);
+            const r = store.put(data); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
+        });
+    },
+    async get(storeName, key) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const r = this._tx(storeName).get(key); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
+        });
+    },
+    async getAll(storeName) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const r = this._tx(storeName).getAll(); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
+        });
+    },
+    async delete(storeName, key) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const store = this._db.transaction(storeName, 'readwrite').objectStore(storeName);
+            const r = store.delete(key); r.onsuccess = () => resolve(); r.onerror = () => reject(r.error);
+        });
+    },
+    async getByIndex(storeName, indexName, value) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const r = this._tx(storeName).index(indexName).getAll(value);
+            r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
+        });
+    },
+    async getSopralluogo(id) { return this.get('sopralluoghi', id); },
+    async getAllSopralluoghi() { const all = await this.getAll('sopralluoghi'); return all.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)); },
+    async saveSopralluogo(data) { data.updated_at = Date.now(); return this.put('sopralluoghi', data); },
+    async deleteSopralluogo(id) {
+        const events = await this.getByIndex('events', 'sopralluogo_id', id);
+        const photos = await this.getByIndex('photos', 'sopralluogo_id', id);
+        const tx = this._db.transaction(['sopralluoghi', 'events', 'photos'], 'readwrite');
+        tx.objectStore('sopralluoghi').delete(id);
+        for (const ev of events) tx.objectStore('events').delete(ev.id);
+        for (const ph of photos) tx.objectStore('photos').delete(ph.id);
+        return new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
+    },
+    async addEvent(event) { return this.add('events', event); },
+    async getEventsBySopralluogo(sopralluogoId) { const events = await this.getByIndex('events', 'sopralluogo_id', sopralluogoId); return events.sort((a, b) => a.timestamp - b.timestamp); },
+    async addPhoto(photoData) { return this.put('photos', photoData); },
+    async getPhoto(id) { return this.get('photos', id); },
+    async getPhotosBySopralluogo(sopralluogoId) { return this.getByIndex('photos', 'sopralluogo_id', sopralluogoId); },
+    async getPhotosByRoom(roomName) { return this.getByIndex('photos', 'room_name', roomName); }
+};
+
+// ==================== EVENTS ====================
+const Events = {
+    uuid() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); }); },
+    getUserId() { try { if (window.Telegram && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) return Telegram.WebApp.initDataUnsafe.user.id; } catch (e) {} return 0; },
+    async dispatch(type, sopralluogoId, payload) {
+        const event = { sopralluogo_id: sopralluogoId, type, timestamp: Date.now(), user_id: this.getUserId(), payload: payload || {}, synced: false };
+        await DB.addEvent(event);
+        await this.applyEvent(event);
+        return event;
+    },
+    async applyEvent(event) {
+        let sop = await DB.getSopralluogo(event.sopralluogo_id);
+        if (!sop && event.type !== 'create_sopralluogo') { console.warn('Sopralluogo non trovato per evento:', event); return; }
+        const p = event.payload;
+        switch (event.type) {
+            case 'create_sopralluogo':
+                sop = { id: event.sopralluogo_id, building_code: p.building_code || '', building_address: p.building_address || '', floor: p.floor || '', stair: p.stair || '', unit_type: p.unit_type || '', subalterno: p.subalterno || '', unit_internal: p.unit_internal || '', unit_name: '', owner: null, attendees: { metro_tech: '', metro_coll: '', rm: '' }, phase: 1, rooms: {}, global_notes: '', planimetria_photo_id: null, created_at: event.timestamp, updated_at: event.timestamp, synced: false };
+                break;
+            case 'update_setup': Object.assign(sop, p); break;
+            case 'set_anagrafica':
+                if (p.owner !== undefined) sop.owner = p.owner;
+                if (p.attendees !== undefined) sop.attendees = { ...sop.attendees, ...p.attendees };
+                break;
+            case 'upload_planimetria': sop.planimetria_photo_id = p.photo_id; break;
+            case 'complete_phase': sop.phase = p.phase; break;
+            case 'add_vano':
+                if (!sop.rooms[p.full_name]) sop.rooms[p.full_name] = { room_number: p.room_number, room_name: p.room_name, status: 'accessible', finishes: null, observations: [], photos: [] };
+                break;
+            case 'set_room_status': if (sop.rooms[p.room_name]) sop.rooms[p.room_name].status = p.status; break;
+            case 'set_room_finishes': if (sop.rooms[p.room_name]) sop.rooms[p.room_name].finishes = p.ceiling_type; break;
+            case 'add_observation':
+                if (sop.rooms[p.room_name]) sop.rooms[p.room_name].observations.push({ element: p.element, wall: p.wall || null, position: p.position || null, phenomenon: p.phenomenon, attributes: p.attributes || [], notes: p.notes || '', photo_id: p.photo_id || null, infisso_type: p.infisso_type || null, infisso_wall: p.infisso_wall || null, infisso_which: p.infisso_which || null, infisso_sub_pos: p.infisso_sub_pos || null, timestamp: event.timestamp });
+                break;
+            case 'add_photo':
+                if (sop.rooms[p.room_name]) sop.rooms[p.room_name].photos.push({ photo_id: p.photo_id, type: p.type, filename: p.filename });
+                break;
+            case 'set_room_ndr':
+                if (sop.rooms[p.room_name]) sop.rooms[p.room_name].observations.push({ element: p.element, wall: p.wall || null, position: null, phenomenon: 'NDR', attributes: [], notes: '', photo_id: null, timestamp: event.timestamp });
+                break;
+            case 'set_room_ingombra':
+                if (sop.rooms[p.room_name]) sop.rooms[p.room_name].observations.push({ element: p.element, wall: p.wall || null, position: null, phenomenon: 'INGOMBRA', attributes: [], notes: '', photo_id: null, timestamp: event.timestamp });
+                break;
+            case 'edit_observation':
+                if (sop.rooms[p.room_name] && sop.rooms[p.room_name].observations[p.observation_index]) Object.assign(sop.rooms[p.room_name].observations[p.observation_index], p.changes);
+                break;
+            case 'delete_observation': if (sop.rooms[p.room_name]) sop.rooms[p.room_name].observations.splice(p.observation_index, 1); break;
+            case 'add_global_note': sop.global_notes = (sop.global_notes || '') + '\n' + p.note_text; break;
+            case 'request_report': sop.report_requested = true; break;
+        }
+        sop.updated_at = event.timestamp;
+        sop.synced = false;
+        await DB.saveSopralluogo(sop);
+    },
+    async replayEvents(sopralluogoId) {
+        const events = await DB.getEventsBySopralluogo(sopralluogoId);
+        await DB.delete('sopralluoghi', sopralluogoId);
+        for (const event of events) await this.applyEvent(event);
+        return DB.getSopralluogo(sopralluogoId);
+    },
+    async createSopralluogo(data) { const id = this.uuid(); await this.dispatch('create_sopralluogo', id, data); return id; }
+};
+
+// ==================== PHOTOS ====================
+const Photos = {
+    MAX_WIDTH: 1920, MAX_HEIGHT: 1920, THUMB_SIZE: 200, QUALITY: 0.85,
+    capture(acceptType = 'image/*') {
+        return new Promise((resolve) => {
+            const input = document.createElement('input');
+            input.type = 'file'; input.accept = acceptType; input.capture = 'environment';
+            input.onchange = async () => {
+                if (!input.files || !input.files[0]) { resolve(null); return; }
+                const file = input.files[0];
+                try {
+                    const resized = await this.resizeImage(file, this.MAX_WIDTH, this.MAX_HEIGHT, this.QUALITY);
+                    const thumbnail = await this.resizeImage(file, this.THUMB_SIZE, this.THUMB_SIZE, 0.6);
+                    resolve({ blob: resized, thumbnail });
+                } catch (e) { console.error('Errore resize foto:', e); resolve({ blob: file, thumbnail: file }); }
+            };
+            input.addEventListener('cancel', () => resolve(null));
+            input.click();
+        });
+    },
+    resizeImage(file, maxW, maxH, quality) {
+        return new Promise((resolve, reject) => {
+            const img = new Image(); const url = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                let w = img.width, h = img.height;
+                if (w > maxW || h > maxH) { const ratio = Math.min(maxW / w, maxH / h); w = Math.round(w * ratio); h = Math.round(h * ratio); }
+                const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                canvas.toBlob((blob) => { if (blob) resolve(blob); else reject(new Error('Canvas toBlob failed')); }, 'image/jpeg', quality);
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+            img.src = url;
+        });
+    },
+    async save(sopralluogoId, roomName, type, blob, thumbnail, observationKey = null) {
+        const id = Events.uuid();
+        const photoCount = (await DB.getPhotosByRoom(roomName)).filter((p) => p.type === type).length;
+        const num = photoCount + 1;
+        let filename;
+        if (type === 'planimetria') filename = `planimetria_${Date.now()}.jpg`;
+        else if (type === 'panoramica') filename = `FOTO_PANORAMICA_${num}.jpg`;
+        else filename = `Foto_${num}_dettaglio.jpg`;
+        const photoData = { id, sopralluogo_id: sopralluogoId, room_name: roomName, type, filename, blob, thumbnail, observation_key: observationKey, created_at: Date.now(), synced: false };
+        await DB.addPhoto(photoData);
+        return { id, filename };
+    },
+    async getThumbnailUrl(photoId) { const photo = await DB.getPhoto(photoId); if (!photo || !photo.thumbnail) return null; return URL.createObjectURL(photo.thumbnail); },
+    async getFullUrl(photoId) { const photo = await DB.getPhoto(photoId); if (!photo || !photo.blob) return null; return URL.createObjectURL(photo.blob); }
+};
+
+// ==================== SYNC ====================
+const Sync = {
+    isOnline() { return navigator.onLine; },
+    updateIndicator() {
+        const dot = document.getElementById('sync-indicator');
+        if (!dot) return;
+        if (this.isOnline()) { dot.classList.remove('offline', 'syncing'); dot.classList.add('online'); dot.title = 'Online'; }
+        else { dot.classList.remove('online', 'syncing'); dot.classList.add('offline'); dot.title = 'Offline'; }
+    },
+    init() { window.addEventListener('online', () => this.updateIndicator()); window.addEventListener('offline', () => this.updateIndicator()); this.updateIndicator(); },
+    async sendToBot(sopralluogoId) {
+        const sop = await DB.getSopralluogo(sopralluogoId);
+        if (!sop) { UI.toast('Sopralluogo non trovato'); return false; }
+        const payload = { action: 'sync_sopralluogo', sopralluogo: { id: sop.id, building_code: sop.building_code, building_address: sop.building_address, floor: sop.floor, stair: sop.stair, unit_type: sop.unit_type, subalterno: sop.subalterno, unit_internal: sop.unit_internal, unit_name: sop.unit_name, owner: sop.owner, attendees: sop.attendees, rooms: sop.rooms, global_notes: sop.global_notes } };
+        const json = JSON.stringify(payload);
+        if (json.length > 4096) return this.sendChunked(sopralluogoId, payload);
+        try {
+            if (window.Telegram && Telegram.WebApp) { Telegram.WebApp.sendData(json); sop.synced = true; await DB.saveSopralluogo(sop); UI.toast('Dati inviati al bot'); return true; }
+            else { console.log('SYNC DATA:', json); UI.toast('Dati pronti (modalit\u00e0 test)'); return true; }
+        } catch (e) { console.error('Errore sync:', e); UI.toast('Errore invio dati'); return false; }
+    },
+    async sendChunked(sopralluogoId, payload) {
+        const sop = await DB.getSopralluogo(sopralluogoId);
+        const rooms = sop.rooms; const roomNames = Object.keys(rooms);
+        for (let i = 0; i < roomNames.length; i++) {
+            const roomName = roomNames[i];
+            const chunk = { action: 'sync_room', sopralluogo_id: sopralluogoId, room_index: i, total_rooms: roomNames.length, building_code: sop.building_code, floor: sop.floor, unit_name: sop.unit_name || `${sop.unit_type} - Sub. ${sop.subalterno} - ${sop.unit_internal}`, room_name: roomName, room_data: rooms[roomName], ...(i === 0 ? { owner: sop.owner, attendees: sop.attendees, global_notes: sop.global_notes } : {}) };
+            const json = JSON.stringify(chunk);
+            if (json.length > 4096) console.warn(`Vano ${roomName} troppo grande (${json.length} bytes)`);
+            try { if (window.Telegram && Telegram.WebApp) Telegram.WebApp.sendData(json); } catch (e) { console.error(`Errore invio chunk ${i}:`, e); return false; }
+        }
+        sop.synced = true; await DB.saveSopralluogo(sop); UI.toast('Dati inviati al bot'); return true;
+    },
+    async requestReport(sopralluogoId) {
+        const sop = await DB.getSopralluogo(sopralluogoId);
+        if (!sop) return false;
+        await Events.dispatch('request_report', sopralluogoId, {});
+        const payload = { action: 'generate_report', sopralluogo_id: sopralluogoId, building_code: sop.building_code, floor: sop.floor, unit_name: sop.unit_name || `${sop.unit_type} - Sub. ${sop.subalterno} - ${sop.unit_internal}` };
+        try {
+            if (window.Telegram && Telegram.WebApp) { Telegram.WebApp.sendData(JSON.stringify(payload)); UI.toast('Richiesta report inviata'); return true; }
+            else { console.log('REPORT REQUEST:', payload); UI.toast('Richiesta report (modalit\u00e0 test)'); return true; }
+        } catch (e) { console.error('Errore richiesta report:', e); UI.toast('Errore richiesta report'); return false; }
+    }
+};
+
+// ==================== UI COMPONENTS ====================
+function formatObservationText(obs) {
+    if (!obs || !obs.phenomenon) return '';
+    if (obs.phenomenon === 'NDR' || obs.phenomenon === 'Nulla da Rilevare') { return `${obs.wall || obs.element} NDR (per quanto visibile)`; }
+    if (obs.phenomenon === 'INGOMBRA') { return `${obs.wall || obs.element} ingombra`; }
+    if (obs.phenomenon === 'NESSUN DIFETTO') { return `${obs.wall || obs.element} nessun difetto rilevato`; }
+    let parts = [];
+    parts.push(obs.wall || obs.element);
+    if (obs.position) parts.push(obs.position);
+    parts.push(obs.phenomenon);
+    if (obs.attributes && obs.attributes.length > 0) {
+        const attrText = obs.attributes.map((a) => a.replace(' (Verticale)', '').replace(' (Orizzontale)', '').replace(' (Diagonale)', '').replace('Ultimo Tratto ', '').replace('Diedro ', '')).join(', ');
+        parts.push(`(${attrText})`);
+    }
+    if (obs.notes) parts.push(obs.notes);
+    let text = parts.join(' ');
+    return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+const UI = {
+    toast(message, duration = 2500) { const el = document.getElementById('toast'); el.textContent = message; el.classList.remove('hidden'); clearTimeout(UI._toastTimer); UI._toastTimer = setTimeout(() => el.classList.add('hidden'), duration); },
+    _toastTimer: null,
+    showModal(html) { const overlay = document.getElementById('modal-overlay'); const content = document.getElementById('modal-content'); content.innerHTML = html; overlay.classList.remove('hidden'); overlay.onclick = (e) => { if (e.target === overlay) UI.hideModal(); }; },
+    hideModal() { document.getElementById('modal-overlay').classList.add('hidden'); },
+    setTitle(title) { document.getElementById('header-title').textContent = title; },
+    showBack(show, onClick) { const btn = document.getElementById('btn-back'); if (show) { btn.classList.remove('hidden'); btn.onclick = onClick || (() => history.back()); } else { btn.classList.add('hidden'); btn.onclick = null; } },
+    section(header, bodyHtml) { return `<div class="section">${header ? `<div class="section-header">${header}</div>` : ''}<div class="section-body">${bodyHtml}</div></div>`; },
+    cell({ icon, title, subtitle, badge, chevron = true, dataId }) {
+        const attrs = dataId ? `data-id="${dataId}"` : '';
+        return `<div class="cell" ${attrs}>${icon ? `<div class="cell-icon">${icon}</div>` : ''}<div class="cell-body"><div class="cell-title">${title}</div>${subtitle ? `<div class="cell-subtitle">${subtitle}</div>` : ''}</div>${badge ? `<span class="cell-badge">${badge}</span>` : ''}${chevron ? '<span class="cell-chevron">&#8250;</span>' : ''}</div>`;
+    },
+    buttonGrid(items, options = {}) {
+        const cols = options.cols === 3 ? 'btn-grid-3' : '';
+        const buttons = items.map((item) => { const val = typeof item === 'string' ? item : item.value; const label = typeof item === 'string' ? item : item.label; const cls = item.className || ''; return `<button class="btn-choice ${cls}" data-value="${val}">${label}</button>`; }).join('');
+        return `<div class="btn-grid ${cols}">${buttons}</div>`;
+    },
+    groupedMenu(groups, multiSelect = false) {
+        let html = '';
+        for (const [title, items] of Object.entries(groups)) {
+            const chips = items.map((item) => `<button class="${multiSelect ? 'menu-chip check' : 'menu-chip'}" data-value="${item}">${item}</button>`).join('');
+            html += `<div class="menu-group"><div class="menu-group-title">${title}</div><div class="menu-group-items">${chips}</div></div>`;
+        }
+        return html;
+    },
+    chipList(items, multiSelect = false) {
+        const cls = multiSelect ? 'menu-chip check' : 'menu-chip';
+        return `<div class="menu-group-items" style="padding: 8px 16px;">${items.map((item) => `<button class="${cls}" data-value="${item}">${item}</button>`).join('')}</div>`;
+    },
+    stepper(total, current) { let dots = ''; for (let i = 0; i < total; i++) { dots += `<div class="stepper-dot ${i < current ? 'done' : i === current ? 'active' : ''}"></div>`; } return `<div class="stepper">${dots}</div>`; },
+    observationCard(obs, index) { return `<div class="obs-card" data-obs-index="${index}"><div class="obs-card-element">${obs.element}${obs.wall ? ' ' + obs.wall : ''}</div><div class="obs-card-text">${formatObservationText(obs)}</div><div class="obs-card-photo">${obs.photo_id ? 'Con foto' : 'Senza foto'}</div></div>`; },
+    emptyState(icon, title, text) { return `<div class="empty-state"><div class="empty-state-icon">${icon}</div><div class="empty-state-title">${title}</div><div class="empty-state-text">${text}</div></div>`; },
+    formInput({ label, placeholder, id, type = 'text', value = '' }) { return `<div class="form-group">${label ? `<label class="form-label" for="${id}">${label}</label>` : ''}<input class="form-input" type="${type}" id="${id}" placeholder="${placeholder || ''}" value="${value}"></div>`; },
+    statusBadge(status) { const labels = { accessible: 'Accessibile', non_accessibile: 'Non Accessibile', non_valutabile: 'Non Valutabile', non_autorizzato: 'Non Autorizzato', completed: 'Completato', in_progress: 'In Corso' }; return `<span class="status-badge status-${status}">${labels[status] || status}</span>`; }
+};
+</script>
+
+<!-- PART 2: Views and App Router loaded separately to avoid token limits -->
+<script>
+// ==================== HOME VIEW ====================
+const HomeView = {
+    async render(container) {
+        UI.setTitle('Testimoniale');
+        const sopralluoghi = await DB.getAllSopralluoghi();
+        const inCorso = sopralluoghi.filter((s) => s.phase < 4);
+        const completati = sopralluoghi.filter((s) => s.phase >= 4);
+        let html = '<div class="px-16" style="padding-top: 16px;"><button class="btn btn-primary" id="btn-new-sop">Nuovo Testimoniale</button></div>';
+        if (inCorso.length > 0) {
+            let cells = '';
+            for (const sop of inCorso) {
+                const roomCount = Object.keys(sop.rooms || {}).length;
+                const phaseName = sop.phase === 1 ? 'Setup' : sop.phase === 2 ? 'Ricognizione' : 'Analisi';
+                cells += UI.cell({ icon: '\uD83C\uDFD7\uFE0F', title: `${sop.building_code} - ${sop.unit_type || ''}`, subtitle: `${sop.floor || ''} | ${sop.unit_internal || ''} | ${roomCount} vani | ${phaseName}`, badge: sop.synced ? null : 'Non sync', dataId: sop.id });
+            }
+            html += UI.section('IN CORSO', cells);
+        }
+        if (completati.length > 0) {
+            let cells = '';
+            for (const sop of completati) {
+                const roomCount = Object.keys(sop.rooms || {}).length;
+                cells += UI.cell({ icon: '\u2705', title: `${sop.building_code} - ${sop.unit_type || ''}`, subtitle: `${sop.floor || ''} | ${sop.unit_internal || ''} | ${roomCount} vani`, dataId: sop.id });
+            }
+            html += UI.section('COMPLETATI', cells);
+        }
+        if (sopralluoghi.length === 0) html += UI.emptyState('\uD83D\uDCCB', 'Nessun testimoniale', 'Tocca "Nuovo Testimoniale" per iniziare un sopralluogo');
+        container.innerHTML = html;
+        document.getElementById('btn-new-sop').addEventListener('click', async () => { const id = await Events.createSopralluogo({}); App.navigate(`setup/${id}`); });
+        container.querySelectorAll('.cell[data-id]').forEach((cell) => {
+            cell.addEventListener('click', () => { const id = cell.dataset.id; DB.getSopralluogo(id).then((sop) => { if (!sop) return; if (sop.phase === 1) App.navigate(`setup/${id}`); else App.navigate(`rooms/${id}`); }); });
+        });
+    }
+};
+
+// ==================== SETUP VIEW ====================
+const SetupView = {
+    steps: [
+        { key: 'building_code', label: 'Codice Fabbricato', type: 'text', placeholder: 'Es. 100C, 3B' },
+        { key: 'building_address', label: 'Indirizzo Fabbricato', type: 'text', placeholder: 'Es. Via Roma, 10' },
+        { key: 'floor', label: 'Piano', type: 'choice', options: () => CONFIG.FLOORS },
+        { key: 'stair', label: 'Scala', type: 'choice', options: () => CONFIG.STAIRS },
+        { key: 'unit_type', label: 'Tipo Unit\u00e0', type: 'choice', options: () => CONFIG.UNIT_TYPES },
+        { key: 'subalterno', label: 'Subalterno', type: 'text', placeholder: 'Es. 500' },
+        { key: 'unit_internal', label: 'Interno', type: 'text', placeholder: 'Es. 3, Int A' },
+        { key: 'planimetria', label: 'Planimetria', type: 'photo' }
+    ],
+    currentStep: 0, sopId: null,
+    async render(container, params) {
+        this.sopId = params[0];
+        if (!this.sopId) { App.navigate('home', true); return; }
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (!sop) { App.navigate('home', true); return; }
+        this.currentStep = 0;
+        for (let i = 0; i < this.steps.length - 1; i++) { if (sop[this.steps[i].key]) this.currentStep = i + 1; else break; }
+        if (sop.planimetria_photo_id) this.currentStep = this.steps.length;
+        if (this.currentStep >= this.steps.length) { App.navigate(`anagrafica/${this.sopId}`, true); return; }
+        this.renderStep(container, sop);
+    },
+    renderStep(container, sop) {
+        const step = this.steps[this.currentStep];
+        UI.setTitle(step.label);
+        let html = UI.stepper(this.steps.length, this.currentStep);
+        if (this.currentStep > 0) {
+            let summary = '<div class="px-16 mb-8">';
+            for (let i = 0; i < this.currentStep; i++) { const s = this.steps[i]; const val = sop[s.key] || ''; if (val && s.type !== 'photo') summary += `<span class="text-hint">${s.label}: <strong style="color:var(--text)">${val}</strong> | </span>`; }
+            summary += '</div>'; html += summary;
+        }
+        if (step.type === 'text') {
+            html += UI.formInput({ label: step.label, placeholder: step.placeholder, id: 'setup-input', value: sop[step.key] || '' });
+            html += '<div class="px-16 mt-8"><button class="btn btn-primary" id="setup-next">Avanti</button></div>';
+        } else if (step.type === 'choice') {
+            html += `<div class="wizard-header"><div class="wizard-subtitle">Seleziona ${step.label}</div></div>`;
+            html += UI.buttonGrid(step.options());
+            html += '<div class="px-16 mt-8"><input class="form-input" type="text" id="setup-manual" placeholder="Oppure scrivi manualmente..."><button class="btn btn-secondary mt-8" id="setup-manual-btn" style="display:none">Usa valore inserito</button></div>';
+        } else if (step.type === 'photo') {
+            html += '<div class="empty-state"><div class="empty-state-icon">\uD83D\uDCD0</div><div class="empty-state-title">Carica la planimetria</div><div class="empty-state-text">Scatta una foto o seleziona dalla galleria</div></div>';
+            html += '<div class="px-16"><button class="btn btn-primary mb-8" id="setup-photo">Scatta / Seleziona Foto</button><button class="btn btn-secondary" id="setup-skip-photo">Salta</button></div>';
+        }
+        container.innerHTML = html;
+        this.bindEvents(container, step, sop);
+    },
+    bindEvents(container, step, sop) {
+        if (step.type === 'text') {
+            const input = document.getElementById('setup-input'); const btn = document.getElementById('setup-next');
+            setTimeout(() => input.focus(), 100);
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') btn.click(); });
+            btn.addEventListener('click', async () => { const value = input.value.trim(); if (!value) { UI.toast('Inserisci un valore'); return; } await this.saveStep(step.key, value); });
+        } else if (step.type === 'choice') {
+            container.querySelectorAll('.btn-choice').forEach((btn) => { btn.addEventListener('click', async () => { await this.saveStep(step.key, btn.dataset.value); }); });
+            const manualInput = document.getElementById('setup-manual'); const manualBtn = document.getElementById('setup-manual-btn');
+            manualInput.addEventListener('input', () => { manualBtn.style.display = manualInput.value.trim() ? 'block' : 'none'; });
+            manualBtn.addEventListener('click', async () => { const value = manualInput.value.trim(); if (value) await this.saveStep(step.key, value); });
+        } else if (step.type === 'photo') {
+            document.getElementById('setup-photo').addEventListener('click', async () => {
+                const result = await Photos.capture();
+                if (result) { const { id } = await Photos.save(this.sopId, '__planimetria__', 'planimetria', result.blob, result.thumbnail); await Events.dispatch('upload_planimetria', this.sopId, { photo_id: id }); UI.toast('Planimetria caricata'); App.navigate(`anagrafica/${this.sopId}`); }
+            });
+            document.getElementById('setup-skip-photo').addEventListener('click', () => { App.navigate(`anagrafica/${this.sopId}`); });
+        }
+    },
+    async saveStep(key, value) {
+        if (key === 'building_code') value = value.toUpperCase().trim();
+        else if (key === 'building_address') value = value.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+        else if (key === 'unit_internal') { if (!value.toLowerCase().startsWith('int')) value = `Interno ${value}`; }
+        await Events.dispatch('update_setup', this.sopId, { [key]: value });
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (sop.unit_type && sop.subalterno && sop.unit_internal) {
+            const unitName = `${sop.unit_type} - Sub. ${sop.subalterno} - ${sop.unit_internal}`;
+            if (sop.unit_name !== unitName) await Events.dispatch('update_setup', this.sopId, { unit_name: unitName });
+        }
+        this.currentStep++;
+        if (this.currentStep >= this.steps.length) App.navigate(`anagrafica/${this.sopId}`);
+        else { const updatedSop = await DB.getSopralluogo(this.sopId); this.renderStep(document.getElementById('app-content'), updatedSop); }
+    }
+};
+
+// ==================== ANAGRAFICA VIEW ====================
+const AnagraficaView = {
+    sopId: null,
+    formField(id, label, value) { return `<div class="form-group"><label class="form-label" for="field-${id}">${label}</label><input class="form-input" type="text" id="field-${id}" value="${value || ''}" placeholder="Inserisci ${label.toLowerCase()}"></div>`; },
+    async render(container, params) {
+        this.sopId = params[0];
+        if (!this.sopId) { App.navigate('home', true); return; }
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (!sop) { App.navigate('home', true); return; }
+        UI.setTitle('Anagrafica');
+        let html = `<div class="section"><div class="section-header">FABBRICATO</div><div class="section-body"><div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-title">${sop.building_code} - ${sop.building_address || ''}</div><div class="cell-subtitle">${sop.floor || ''} | ${sop.stair || ''} | ${sop.unit_name || sop.unit_type || ''}</div></div></div></div></div>`;
+        html += `<div class="section"><div class="section-header">PROPRIETARIO</div><div class="section-body"><div class="form-group"><label class="form-label">Tipo</label><div class="btn-grid" style="padding:0; margin-top:8px;"><button class="btn-choice ${sop.owner && sop.owner.type === 'persona' ? 'selected' : ''}" data-owner-type="persona">Persona</button><button class="btn-choice ${sop.owner && sop.owner.type === 'societa' ? 'selected' : ''}" data-owner-type="societa">Societ\u00e0</button></div></div></div></div>`;
+        html += '<div id="owner-fields"></div>';
+        html += `<div class="section"><div class="section-header">PRESENTI AL SOPRALLUOGO</div><div class="section-body">${this.formField('metro_tech', 'Tecnico Metro C', sop.attendees?.metro_tech)}${this.formField('metro_coll', 'Collaboratori Metro C', sop.attendees?.metro_coll)}${this.formField('rm', 'Roma Metropolitane', sop.attendees?.rm)}</div></div>`;
+        html += '<div class="px-16 py-12"><button class="btn btn-primary" id="btn-proceed">Procedi ai Vani</button></div><div style="height: 32px;"></div>';
+        container.innerHTML = html;
+        this.renderOwnerFields(sop);
+        this.bindEvents(sop);
+    },
+    renderOwnerFields(sop) {
+        const container = document.getElementById('owner-fields'); const type = sop.owner?.type || '';
+        let html = '<div class="section"><div class="section-body">';
+        if (type === 'persona') html += this.formField('owner_name', 'Nome e Cognome', sop.owner?.name);
+        else if (type === 'societa') { html += this.formField('company_name', 'Ragione Sociale', sop.owner?.company_name); html += this.formField('company_admin', 'Amministratore', sop.owner?.company_admin); }
+        html += '</div></div>';
+        container.innerHTML = type ? html : '';
+    },
+    bindEvents(sop) {
+        document.querySelectorAll('[data-owner-type]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                document.querySelectorAll('[data-owner-type]').forEach((b) => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                const owner = { type: btn.dataset.ownerType, name: '', company_name: '', company_admin: '' };
+                await Events.dispatch('set_anagrafica', this.sopId, { owner });
+                const updatedSop = await DB.getSopralluogo(this.sopId);
+                this.renderOwnerFields(updatedSop);
+            });
+        });
+        document.getElementById('btn-proceed').addEventListener('click', async () => {
+            const owner = { type: sop.owner?.type || 'persona' };
+            const nameEl = document.getElementById('field-owner_name'); const companyEl = document.getElementById('field-company_name'); const adminEl = document.getElementById('field-company_admin');
+            if (nameEl) owner.name = nameEl.value.trim(); if (companyEl) owner.company_name = companyEl.value.trim(); if (adminEl) owner.company_admin = adminEl.value.trim();
+            const attendees = { metro_tech: document.getElementById('field-metro_tech')?.value.trim() || '', metro_coll: document.getElementById('field-metro_coll')?.value.trim() || '', rm: document.getElementById('field-rm')?.value.trim() || '' };
+            await Events.dispatch('set_anagrafica', this.sopId, { owner, attendees });
+            await Events.dispatch('complete_phase', this.sopId, { phase: 2 });
+            UI.toast('Anagrafica salvata');
+            App.navigate(`rooms/${this.sopId}`);
+        });
+    }
+};
+</script>
+
+<script>
+// ==================== ROOMS VIEW ====================
+const RoomsView = {
+    sopId: null,
+    async render(container, params) {
+        this.sopId = params[0];
+        if (!this.sopId) { App.navigate('home', true); return; }
+        const roomParam = params[1] ? decodeURIComponent(params[1]) : null;
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (!sop) { App.navigate('home', true); return; }
+        if (roomParam && sop.rooms[roomParam]) this.renderRoomCard(container, sop, roomParam);
+        else this.renderRoomList(container, sop);
+    },
+    async renderRoomList(container, sop) {
+        UI.setTitle(`${sop.building_code} - Vani`);
+        const rooms = sop.rooms || {}; const roomNames = Object.keys(rooms);
+        let html = `<div class="section"><div class="section-body"><div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-title">${sop.building_code} - ${sop.unit_name || sop.unit_type}</div><div class="cell-subtitle">${sop.floor} | ${sop.stair}</div></div></div></div></div>`;
+        html += `<div class="phase-tabs"><button class="phase-tab ${sop.phase === 2 ? 'active' : ''}" data-phase="2">Ricognizione</button><button class="phase-tab ${sop.phase === 3 ? 'active' : ''}" data-phase="3">Analisi Difetti</button></div>`;
+        if (roomNames.length > 0) {
+            let cells = '';
+            for (const name of roomNames) {
+                const room = rooms[name]; const obsCount = (room.observations || []).length; const photoCount = (room.photos || []).length;
+                const statusIcon = room.status === 'accessible' ? '\uD83D\uDFE2' : room.status === 'non_accessibile' ? '\uD83D\uDFE0' : room.status === 'non_valutabile' ? '\uD83D\uDD34' : '\uD83D\uDFE3';
+                cells += UI.cell({ icon: statusIcon, title: name, subtitle: `${room.finishes || 'Soffitto: -'} | Oss: ${obsCount} | Foto: ${photoCount}`, dataId: name });
+            }
+            html += UI.section('VANI', cells);
+        } else html += UI.emptyState('\uD83C\uDFE0', 'Nessun vano', 'Aggiungi il primo vano per iniziare');
+        html += `<div class="px-16 py-12"><button class="btn btn-primary mb-8" id="btn-add-room">Aggiungi Vano</button>${roomNames.length > 0 ? '<button class="btn btn-outline" id="btn-review">Riepilogo / Report</button>' : ''}</div><div style="height: 32px;"></div>`;
+        container.innerHTML = html;
+        this.bindRoomListEvents(container, sop);
+    },
+    bindRoomListEvents(container, sop) {
+        container.querySelectorAll('.cell[data-id]').forEach((cell) => { cell.addEventListener('click', () => { App.navigate(`rooms/${this.sopId}/${encodeURIComponent(cell.dataset.id)}`); }); });
+        container.querySelectorAll('.phase-tab').forEach((tab) => { tab.addEventListener('click', async () => { await Events.dispatch('complete_phase', this.sopId, { phase: parseInt(tab.dataset.phase) }); const updatedSop = await DB.getSopralluogo(this.sopId); this.renderRoomList(container, updatedSop); }); });
+        document.getElementById('btn-add-room')?.addEventListener('click', () => { this.showAddRoomModal(sop); });
+        document.getElementById('btn-review')?.addEventListener('click', () => { App.navigate(`review/${this.sopId}`); });
+    },
+    showAddRoomModal(sop) {
+        const existingRooms = Object.keys(sop.rooms || {}); const nextNum = existingRooms.length + 1;
+        let html = `<div class="modal-title">Aggiungi Vano</div><div class="form-group"><label class="form-label">Numero Vano</label><input class="form-input" type="text" id="modal-room-num" value="Vano ${nextNum}" placeholder="Es. Vano 1"></div><div class="form-group"><label class="form-label">Nome Vano</label><input class="form-input" type="text" id="modal-room-name" placeholder="Es. Cucina, Bagno, Ingresso"></div><div class="section-header" style="padding-top:8px">SCEGLI TIPO</div>`;
+        html += UI.buttonGrid(CONFIG.ROOM_TYPES, { cols: 3 });
+        html += '<div class="px-16 mt-16"><button class="btn btn-primary" id="modal-confirm-room">Conferma</button></div>';
+        UI.showModal(html);
+        document.querySelectorAll('.modal-content .btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => { document.querySelectorAll('.modal-content .btn-choice').forEach((b) => b.classList.remove('selected')); btn.classList.add('selected'); document.getElementById('modal-room-name').value = btn.dataset.value.charAt(0).toUpperCase() + btn.dataset.value.slice(1).toLowerCase(); });
+        });
+        document.getElementById('modal-confirm-room').addEventListener('click', async () => {
+            const roomNum = document.getElementById('modal-room-num').value.trim(); const roomName = document.getElementById('modal-room-name').value.trim();
+            if (!roomNum || !roomName) { UI.toast('Compila numero e nome vano'); return; }
+            const fullName = `${roomNum} - ${roomName}`;
+            if (sop.rooms && sop.rooms[fullName]) { UI.toast('Vano gi\u00e0 esistente'); return; }
+            await Events.dispatch('add_vano', this.sopId, { room_number: roomNum, room_name: roomName, full_name: fullName });
+            UI.hideModal(); UI.toast(`${fullName} aggiunto`);
+            App.navigate(`rooms/${this.sopId}/${encodeURIComponent(fullName)}`);
+        });
+    },
+    async renderRoomCard(container, sop, roomName) {
+        const room = sop.rooms[roomName]; UI.setTitle(roomName);
+        let html = `<div class="section"><div class="section-body"><div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-title">Stato: ${UI.statusBadge(room.status)}</div><div class="cell-subtitle">Soffitto: ${room.finishes || 'Non selezionato'}</div></div></div></div></div>`;
+        html += '<div class="px-16"><div class="btn-grid"><button class="btn-choice" id="btn-set-status">Stato Vano</button><button class="btn-choice" id="btn-set-ceiling">Soffitto</button></div></div>';
+        html += '<div class="section"><div class="section-header">FOTO PANORAMICHE</div><div class="section-body" id="room-photos-panoramic"><div class="px-16 py-12"><button class="btn btn-secondary" id="btn-add-panoramic">Aggiungi Foto Panoramica</button></div></div></div>';
+        const observations = room.observations || [];
+        html += `<div class="section"><div class="section-header">OSSERVAZIONI (${observations.length})</div></div>`;
+        if (observations.length > 0) { for (let i = 0; i < observations.length; i++) html += UI.observationCard(observations[i], i); }
+        else html += '<div class="text-center text-hint py-12">Nessuna osservazione</div>';
+        html += `<div class="px-16 py-12 flex-col gap-8"><button class="btn btn-primary" id="btn-add-obs">Aggiungi Osservazione</button><button class="btn btn-secondary" id="btn-back-rooms">Torna ai Vani</button></div><div style="height: 32px;"></div>`;
+        container.innerHTML = html;
+        this.loadPanoramicPhotos(sop, roomName);
+        this.bindRoomCardEvents(sop, roomName);
+    },
+    async loadPanoramicPhotos(sop, roomName) {
+        const photos = (await DB.getPhotosBySopralluogo(sop.id)).filter((p) => p.room_name === roomName && p.type === 'panoramica');
+        if (photos.length > 0) {
+            let gridHtml = '<div class="photo-grid">';
+            for (const photo of photos) { if (photo.thumbnail) { const url = URL.createObjectURL(photo.thumbnail); gridHtml += `<div class="photo-thumb"><img src="${url}" alt="${photo.filename}"></div>`; } }
+            gridHtml += '</div>';
+            const pc = document.getElementById('room-photos-panoramic'); pc.innerHTML = gridHtml + pc.innerHTML;
+        }
+    },
+    bindRoomCardEvents(sop, roomName) {
+        document.getElementById('btn-set-status')?.addEventListener('click', () => {
+            let html = '<div class="modal-title">Stato Vano</div>';
+            html += UI.buttonGrid(CONFIG.ROOM_STATUSES.map((s) => ({ value: s, label: CONFIG.ROOM_STATUS_LABELS[s] })));
+            UI.showModal(html);
+            document.querySelectorAll('.modal-content .btn-choice').forEach((btn) => { btn.addEventListener('click', async () => { await Events.dispatch('set_room_status', this.sopId, { room_name: roomName, status: btn.dataset.value }); UI.hideModal(); UI.toast('Stato aggiornato'); const updatedSop = await DB.getSopralluogo(this.sopId); this.renderRoomCard(document.getElementById('app-content'), updatedSop, roomName); }); });
+        });
+        document.getElementById('btn-set-ceiling')?.addEventListener('click', () => {
+            let html = '<div class="modal-title">Tipo Soffitto</div>'; html += UI.buttonGrid(CONFIG.CEIL_TYPES); UI.showModal(html);
+            document.querySelectorAll('.modal-content .btn-choice').forEach((btn) => { btn.addEventListener('click', async () => { await Events.dispatch('set_room_finishes', this.sopId, { room_name: roomName, ceiling_type: btn.dataset.value }); UI.hideModal(); UI.toast('Soffitto impostato'); const updatedSop = await DB.getSopralluogo(this.sopId); this.renderRoomCard(document.getElementById('app-content'), updatedSop, roomName); }); });
+        });
+        document.getElementById('btn-add-panoramic')?.addEventListener('click', async () => {
+            const result = await Photos.capture();
+            if (result) { const { id, filename } = await Photos.save(this.sopId, roomName, 'panoramica', result.blob, result.thumbnail); await Events.dispatch('add_photo', this.sopId, { room_name: roomName, photo_id: id, type: 'panoramica', filename }); UI.toast('Foto panoramica aggiunta'); const updatedSop = await DB.getSopralluogo(this.sopId); this.renderRoomCard(document.getElementById('app-content'), updatedSop, roomName); }
+        });
+        document.getElementById('btn-add-obs')?.addEventListener('click', () => { App.navigate(`wizard/${this.sopId}/${encodeURIComponent(roomName)}`); });
+        document.getElementById('btn-back-rooms')?.addEventListener('click', () => { App.navigate(`rooms/${this.sopId}`); });
+    }
+};
+</script>
+
+<script>
+// ==================== WIZARD VIEW ====================
+const WizardView = {
+    sopId: null, roomName: null, step: 'element', obs: {},
+    STEPS_ORDER: ['element', 'wall', 'pre_check', 'infisso_type', 'infisso_wall', 'infisso_which', 'infisso_sub_pos', 'position', 'phenomenon', 'details', 'notes', 'photo', 'confirm'],
+    async render(container, params) {
+        this.sopId = params[0]; this.roomName = params[1] ? decodeURIComponent(params[1]) : null;
+        if (!this.sopId || !this.roomName) { App.navigate('home', true); return; }
+        this.step = 'element';
+        this.obs = { element: null, wall: null, position: null, phenomenon: null, attributes: [], notes: '', photo_id: null, infisso_type: null, infisso_wall: null, infisso_which: null, infisso_sub_pos: null };
+        this.renderStep(container);
+    },
+    renderStep(container) {
+        if (!container) container = document.getElementById('app-content');
+        switch (this.step) {
+            case 'element': this.renderElement(container); break;
+            case 'wall': this.renderWall(container); break;
+            case 'pre_check': this.renderPreCheck(container); break;
+            case 'infisso_type': this.renderInfissoType(container); break;
+            case 'infisso_wall': this.renderInfissoWall(container); break;
+            case 'infisso_which': this.renderInfissoWhich(container); break;
+            case 'infisso_sub_pos': this.renderInfissoSubPos(container); break;
+            case 'position': this.renderPosition(container); break;
+            case 'phenomenon': this.renderPhenomenon(container); break;
+            case 'details': this.renderDetails(container); break;
+            case 'notes': this.renderNotes(container); break;
+            case 'photo': this.renderPhoto(container); break;
+            case 'confirm': this.renderConfirm(container); break;
+        }
+    },
+    getStepIndex() { return this.STEPS_ORDER.indexOf(this.step); },
+    goBack() {
+        const idx = this.getStepIndex();
+        if (idx <= 0) { App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`); return; }
+        let prevIdx = idx - 1; const prevStep = this.STEPS_ORDER[prevIdx];
+        if (prevStep === 'wall' && this.obs.element !== 'Parete') prevIdx--;
+        if (prevStep === 'infisso_sub_pos' && this.obs.element !== 'Infisso') prevIdx = this.STEPS_ORDER.indexOf('pre_check');
+        if (prevStep === 'pre_check' && this.obs.element === 'Infisso') prevIdx = this.STEPS_ORDER.indexOf('element');
+        this.step = this.STEPS_ORDER[Math.max(0, prevIdx)]; this.renderStep();
+    },
+    renderElement(container) {
+        UI.setTitle('Elemento');
+        let html = `<div class="wizard-header"><div class="wizard-title">${this.roomName}</div><div class="wizard-subtitle">Seleziona l'elemento da ispezionare</div></div>`;
+        html += UI.buttonGrid(CONFIG.ELEMENTS); container.innerHTML = html;
+        container.querySelectorAll('.btn-choice').forEach((btn) => { btn.addEventListener('click', () => { this.obs.element = btn.dataset.value; if (this.obs.element === 'Parete') this.step = 'wall'; else if (this.obs.element === 'Infisso') this.step = 'infisso_type'; else this.step = 'pre_check'; this.renderStep(); }); });
+    },
+    renderWall(container) {
+        UI.setTitle('Parete');
+        let html = `<div class="wizard-header"><div class="wizard-title">${this.obs.element}</div><div class="wizard-subtitle">Seleziona la parete</div></div>`;
+        html += UI.buttonGrid(CONFIG.WALL_LABELS); container.innerHTML = html;
+        container.querySelectorAll('.btn-choice').forEach((btn) => { btn.addEventListener('click', () => { this.obs.wall = btn.dataset.value; this.step = 'pre_check'; this.renderStep(); }); });
+    },
+    renderPreCheck(container) {
+        const elem = this.obs.wall || this.obs.element; UI.setTitle('Pre-Check');
+        let html = `<div class="wizard-header"><div class="wizard-title">${elem}</div><div class="wizard-subtitle">Condizione dell'elemento</div></div>`;
+        html += UI.buttonGrid([{ value: 'NDR', label: 'NDR (Nulla da Rilevare)' }, { value: 'INGOMBRA', label: 'INGOMBRA' }, { value: 'PROCEDI', label: 'Procedi con Analisi' }]);
+        container.innerHTML = html;
+        container.querySelectorAll('.btn-choice').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const value = btn.dataset.value;
+                if (value === 'NDR') { await Events.dispatch('set_room_ndr', this.sopId, { room_name: this.roomName, element: this.obs.element, wall: this.obs.wall }); UI.toast('NDR registrato'); App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`); }
+                else if (value === 'INGOMBRA') { await Events.dispatch('set_room_ingombra', this.sopId, { room_name: this.roomName, element: this.obs.element, wall: this.obs.wall }); UI.toast('Ingombra registrato'); App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`); }
+                else { this.step = 'position'; this.renderStep(); }
+            });
+        });
+    },
+    renderInfissoType(container) {
+        UI.setTitle('Tipo Infisso');
+        let html = `<div class="wizard-header"><div class="wizard-title">Infisso</div><div class="wizard-subtitle">Seleziona il tipo di infisso</div></div>`;
+        html += UI.buttonGrid(CONFIG.INFISSO_TYPES); container.innerHTML = html;
+        container.querySelectorAll('.btn-choice').forEach((btn) => { btn.addEventListener('click', () => { this.obs.infisso_type = btn.dataset.value; this.step = 'infisso_wall'; this.renderStep(); }); });
+    },
+    renderInfissoWall(container) {
+        UI.setTitle('Parete Infisso');
+        let html = `<div class="wizard-header"><div class="wizard-title">${this.obs.infisso_type}</div><div class="wizard-subtitle">Su quale parete si trova?</div></div>`;
+        html += UI.buttonGrid(CONFIG.WALL_LABELS); container.innerHTML = html;
+        container.querySelectorAll('.btn-choice').forEach((btn) => { btn.addEventListener('click', () => { this.obs.infisso_wall = btn.dataset.value; this.step = 'infisso_which'; this.renderStep(); }); });
+    },
+    renderInfissoWhich(container) {
+        UI.setTitle('Quale Infisso');
+        let html = `<div class="wizard-header"><div class="wizard-title">${this.obs.infisso_type} - ${this.obs.infisso_wall}</div><div class="wizard-subtitle">Quale infisso? (da sinistra)</div></div>`;
+        html += UI.buttonGrid(['1\u00B0 da SX', '2\u00B0 da SX', '3\u00B0 da SX', 'unico']); container.innerHTML = html;
+        container.querySelectorAll('.btn-choice').forEach((btn) => { btn.addEventListener('click', () => { this.obs.infisso_which = btn.dataset.value; this.step = 'infisso_sub_pos'; this.renderStep(); }); });
+    },
+    renderInfissoSubPos(container) {
+        UI.setTitle('Dettaglio Infisso');
+        let html = `<div class="wizard-header"><div class="wizard-title">${this.obs.infisso_type} ${this.obs.infisso_which}</div><div class="wizard-subtitle">Parte specifica dell'infisso</div></div>`;
+        html += UI.buttonGrid(CONFIG.INFISSO_DETAILS, { cols: 3 }); container.innerHTML = html;
+        container.querySelectorAll('.btn-choice').forEach((btn) => { btn.addEventListener('click', () => { this.obs.infisso_sub_pos = btn.dataset.value; this.obs.position = `${this.obs.infisso_type} ${this.obs.infisso_which} ${this.obs.infisso_wall} ${this.obs.infisso_sub_pos}`; this.step = 'phenomenon'; this.renderStep(); }); });
+    },
+    renderPosition(container) {
+        const elem = this.obs.wall || this.obs.element; UI.setTitle('Posizione');
+        let html = `<div class="wizard-header"><div class="wizard-title">${elem}</div><div class="wizard-subtitle">Seleziona la posizione del difetto</div></div>`;
+        if (this.obs.element === 'Parete') html += UI.groupedMenu(CONFIG.POS_WALL_MENUS);
+        else { const positions = CONFIG.getPositions(this.obs.element); if (positions) html += UI.chipList(positions); }
+        container.innerHTML = html;
+        container.querySelectorAll('.menu-chip').forEach((chip) => { chip.addEventListener('click', () => { this.obs.position = chip.dataset.value; this.step = 'phenomenon'; this.renderStep(); }); });
+    },
+    renderPhenomenon(container) {
+        const elem = this.obs.wall || this.obs.element; UI.setTitle('Fenomeno');
+        let html = `<div class="wizard-header"><div class="wizard-title">${elem} - ${this.obs.position || ''}</div><div class="wizard-subtitle">Seleziona il fenomeno/difetto</div></div>`;
+        if (this.obs.element === 'Parete') html += UI.groupedMenu(CONFIG.PHEN_WALL_MENUS);
+        else { const phenomena = CONFIG.getPhenomena(this.obs.element); if (phenomena) html += UI.chipList(phenomena); }
+        container.innerHTML = html;
+        container.querySelectorAll('.menu-chip').forEach((chip) => { chip.addEventListener('click', () => { this.obs.phenomenon = chip.dataset.value; this.step = (this.obs.phenomenon === 'NESSUN DIFETTO' || this.obs.phenomenon === 'Non Visibile') ? 'notes' : 'details'; this.renderStep(); }); });
+    },
+    renderDetails(container) {
+        UI.setTitle('Dettagli');
+        let html = `<div class="wizard-header"><div class="wizard-title">${this.obs.phenomenon}</div><div class="wizard-subtitle">Seleziona attributi (multi-selezione)</div></div>`;
+        html += UI.groupedMenu(CONFIG.ATTRIBUTES_MENUS, true);
+        html += '<div class="px-16 py-12"><button class="btn btn-primary" id="btn-confirm-details">Conferma Dettagli</button><button class="btn btn-secondary mt-8" id="btn-skip-details">Salta (nessun dettaglio)</button></div>';
+        container.innerHTML = html;
+        container.querySelectorAll('.menu-chip.check').forEach((chip) => { chip.addEventListener('click', () => { chip.classList.toggle('selected'); }); });
+        document.getElementById('btn-confirm-details').addEventListener('click', () => { const selected = []; container.querySelectorAll('.menu-chip.check.selected').forEach((chip) => { selected.push(chip.dataset.value); }); this.obs.attributes = selected; this.step = 'notes'; this.renderStep(); });
+        document.getElementById('btn-skip-details').addEventListener('click', () => { this.obs.attributes = []; this.step = 'notes'; this.renderStep(); });
+    },
+    renderNotes(container) {
+        UI.setTitle('Note');
+        let html = `<div class="wizard-header"><div class="wizard-title">Note aggiuntive</div><div class="wizard-subtitle">Opzionale - aggiungi note libere</div></div><div class="form-group"><textarea class="form-input" id="wizard-notes" placeholder="Note aggiuntive (opzionale)..." rows="3">${this.obs.notes || ''}</textarea></div><div class="px-16 py-12"><button class="btn btn-primary" id="btn-next-notes">Avanti</button></div>`;
+        container.innerHTML = html;
+        document.getElementById('btn-next-notes').addEventListener('click', () => { this.obs.notes = document.getElementById('wizard-notes').value.trim(); this.step = 'photo'; this.renderStep(); });
+    },
+    renderPhoto(container) {
+        UI.setTitle('Foto Dettaglio');
+        let html = '<div class="wizard-header"><div class="wizard-title">Foto del difetto</div><div class="wizard-subtitle">Scatta una foto di dettaglio del difetto</div></div><div class="empty-state" style="padding: 24px;"><div class="empty-state-icon">\uD83D\uDCF8</div></div><div class="px-16 py-12 flex-col gap-8"><button class="btn btn-primary" id="btn-take-photo">Scatta / Seleziona Foto</button><button class="btn btn-secondary" id="btn-skip-photo">Salta (senza foto)</button></div>';
+        container.innerHTML = html;
+        document.getElementById('btn-take-photo').addEventListener('click', async () => {
+            const result = await Photos.capture();
+            if (result) { const { id, filename } = await Photos.save(this.sopId, this.roomName, 'dettaglio', result.blob, result.thumbnail); this.obs.photo_id = id; await Events.dispatch('add_photo', this.sopId, { room_name: this.roomName, photo_id: id, type: 'dettaglio', filename }); UI.toast('Foto salvata'); this.step = 'confirm'; this.renderStep(); }
+        });
+        document.getElementById('btn-skip-photo').addEventListener('click', () => { this.obs.photo_id = null; this.step = 'confirm'; this.renderStep(); });
+    },
+    async renderConfirm(container) {
+        UI.setTitle('Conferma');
+        const previewText = formatObservationText(this.obs);
+        let html = `<div class="wizard-header"><div class="wizard-title">Riepilogo Osservazione</div><div class="wizard-subtitle">${this.roomName}</div></div>`;
+        html += `<div class="preview-box">${previewText || 'Osservazione vuota'}</div>`;
+        html += '<div class="section"><div class="section-body">';
+        html += `<div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-subtitle">Elemento</div><div class="cell-title">${this.obs.wall || this.obs.element}</div></div></div>`;
+        if (this.obs.position) html += `<div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-subtitle">Posizione</div><div class="cell-title">${this.obs.position}</div></div></div>`;
+        html += `<div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-subtitle">Fenomeno</div><div class="cell-title">${this.obs.phenomenon}</div></div></div>`;
+        if (this.obs.attributes.length > 0) html += `<div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-subtitle">Attributi</div><div class="cell-title">${this.obs.attributes.join(', ')}</div></div></div>`;
+        if (this.obs.notes) html += `<div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-subtitle">Note</div><div class="cell-title">${this.obs.notes}</div></div></div>`;
+        html += `<div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-subtitle">Foto</div><div class="cell-title">${this.obs.photo_id ? 'Si' : 'No'}</div></div></div>`;
+        html += '</div></div>';
+        if (this.obs.photo_id) { const thumbUrl = await Photos.getThumbnailUrl(this.obs.photo_id); if (thumbUrl) html += `<div class="px-16"><img src="${thumbUrl}" style="width:120px; border-radius:8px;" alt="Foto dettaglio"></div>`; }
+        html += '<div class="px-16 py-12 flex-col gap-8"><button class="btn btn-primary" id="btn-save-obs">Salva Osservazione</button><button class="btn btn-outline" id="btn-save-and-new">Salva e Nuova Osservazione</button><button class="btn btn-secondary" id="btn-cancel-obs">Annulla</button></div><div style="height: 32px;"></div>';
+        container.innerHTML = html;
+        document.getElementById('btn-save-obs').addEventListener('click', async () => { await this.saveObservation(); App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`); });
+        document.getElementById('btn-save-and-new').addEventListener('click', async () => { await this.saveObservation(); this.step = 'element'; this.obs = { element: null, wall: null, position: null, phenomenon: null, attributes: [], notes: '', photo_id: null, infisso_type: null, infisso_wall: null, infisso_which: null, infisso_sub_pos: null }; this.renderStep(); });
+        document.getElementById('btn-cancel-obs').addEventListener('click', () => { App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`); });
+    },
+    async saveObservation() {
+        await Events.dispatch('add_observation', this.sopId, { room_name: this.roomName, element: this.obs.element, wall: this.obs.wall, position: this.obs.position, phenomenon: this.obs.phenomenon, attributes: this.obs.attributes, notes: this.obs.notes, photo_id: this.obs.photo_id, infisso_type: this.obs.infisso_type, infisso_wall: this.obs.infisso_wall, infisso_which: this.obs.infisso_which, infisso_sub_pos: this.obs.infisso_sub_pos });
+        UI.toast('Osservazione salvata');
+    }
+};
+</script>
+
+<script>
+// ==================== REVIEW VIEW ====================
+const ReviewView = {
+    sopId: null,
+    async render(container, params) {
+        this.sopId = params[0];
+        if (!this.sopId) { App.navigate('home', true); return; }
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (!sop) { App.navigate('home', true); return; }
+        UI.setTitle('Riepilogo');
+        const rooms = sop.rooms || {}; const roomNames = Object.keys(rooms);
+        let html = `<div class="section"><div class="section-body"><div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-title">${sop.building_code} - ${sop.unit_name || sop.unit_type}</div><div class="cell-subtitle">${sop.building_address || ''} | ${sop.floor} | ${sop.stair}</div></div></div></div></div>`;
+        if (sop.owner) {
+            const ownerText = sop.owner.type === 'persona' ? (sop.owner.name || '-') : `${sop.owner.company_name || '-'} (${sop.owner.company_admin || '-'})`;
+            html += `<div class="section"><div class="section-header">PROPRIETARIO</div><div class="section-body"><div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-title">${ownerText}</div></div></div></div></div>`;
+        }
+        let totalObs = 0, totalPhotos = 0;
+        for (const name of roomNames) { totalObs += (rooms[name].observations || []).length; totalPhotos += (rooms[name].photos || []).length; }
+        html += `<div class="section"><div class="section-header">STATISTICHE</div><div class="section-body"><div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-title">Vani: ${roomNames.length} | Osservazioni: ${totalObs} | Foto: ${totalPhotos}</div></div></div></div></div>`;
+        for (const roomName of roomNames) {
+            const room = rooms[roomName]; const observations = room.observations || [];
+            let roomHtml = `<div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-title">${roomName} ${UI.statusBadge(room.status)}</div><div class="cell-subtitle">Soffitto: ${room.finishes || '-'} | Osservazioni: ${observations.length}</div></div></div>`;
+            html += UI.section(roomName.toUpperCase(), roomHtml);
+            if (observations.length > 0) { for (let i = 0; i < observations.length; i++) { const obs = observations[i]; const text = formatObservationText(obs); const photoLabel = obs.photo_id ? ' (V.F.)' : ''; html += `<div class="obs-card"><div class="obs-card-element">${obs.element}${obs.wall ? ' ' + obs.wall : ''}</div><div class="obs-card-text">${text}${photoLabel};</div></div>`; } }
+            else html += '<div class="text-center text-hint py-12">Nessuna osservazione</div>';
+        }
+        html += '<div class="section"><div class="section-header">PREVIEW VERBALE</div></div>';
+        html += `<div class="preview-box" style="white-space:pre-wrap; font-style:normal; font-size:13px;">${this.generateVerbalePreview(sop)}</div>`;
+        html += '<div class="px-16 py-12 flex-col gap-8"><button class="btn btn-primary" id="btn-sync-report">Sincronizza e Genera Report</button><button class="btn btn-outline" id="btn-export-json">Esporta JSON</button><button class="btn btn-secondary" id="btn-back-rooms">Torna ai Vani</button></div><div style="height: 32px;"></div>';
+        container.innerHTML = html;
+        document.getElementById('btn-sync-report').addEventListener('click', async () => { if (!Sync.isOnline()) { UI.toast('Sei offline. Connettiti per sincronizzare.'); return; } await Sync.sendToBot(this.sopId); });
+        document.getElementById('btn-export-json').addEventListener('click', async () => { await this.exportJSON(sop); });
+        document.getElementById('btn-back-rooms').addEventListener('click', () => { App.navigate(`rooms/${this.sopId}`); });
+    },
+    generateVerbalePreview(sop) {
+        const rooms = sop.rooms || {}; const roomNames = Object.keys(rooms); let lines = [];
+        lines.push('VERBALE DI SOPRALLUOGO'); lines.push(`Fabbricato: ${sop.building_code} - ${sop.building_address || ''}`); lines.push(`Piano: ${sop.floor} | Scala: ${sop.stair}`); lines.push(`Unit\u00e0: ${sop.unit_name || sop.unit_type}`); lines.push('');
+        if (sop.owner) { if (sop.owner.type === 'persona') lines.push(`Proprietario: ${sop.owner.name || '-'}`); else { lines.push(`Societ\u00e0: ${sop.owner.company_name || '-'}`); lines.push(`Amministratore: ${sop.owner.company_admin || '-'}`); } lines.push(''); }
+        for (const roomName of roomNames) {
+            const room = rooms[roomName]; lines.push(`--- ${roomName} ---`); lines.push(`Soffitto: ${room.finishes || '-'}`);
+            if (room.status !== 'accessible') lines.push(`NOTA: ${CONFIG.ROOM_STATUS_LABELS[room.status] || room.status}`);
+            const observations = room.observations || [];
+            if (observations.length === 0) lines.push('Nessuna osservazione.');
+            else { for (let i = 0; i < observations.length; i++) { const obs = observations[i]; const text = formatObservationText(obs); const photoRef = obs.photo_id ? ` (V.F. ${i + 1})` : ''; lines.push(`${text}${photoRef};`); } }
+            lines.push('');
+        }
+        return lines.join('\n');
+    },
+    async exportJSON(sop) {
+        const events = await DB.getEventsBySopralluogo(sop.id);
+        const exportData = { sopralluogo: sop, events, exported_at: new Date().toISOString() };
+        const json = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `testimoniale_${sop.building_code}_${sop.subalterno || ''}_${Date.now()}.json`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+        UI.toast('JSON esportato');
+    }
+};
+
+// ==================== ARCHIVE VIEW ====================
+const ArchiveView = {
+    async render(container) {
+        UI.setTitle('Archivio');
+        const sopralluoghi = await DB.getAllSopralluoghi();
+        let html = '<div class="form-group"><input class="form-input" type="text" id="archive-search" placeholder="Cerca per codice fabbricato..."></div>';
+        if (sopralluoghi.length === 0) html += UI.emptyState('\uD83D\uDCE6', 'Archivio vuoto', 'I sopralluoghi completati appariranno qui');
+        else html += '<div id="archive-list">' + this.renderList(sopralluoghi) + '</div>';
+        container.innerHTML = html;
+        document.getElementById('archive-search')?.addEventListener('input', (e) => {
+            const query = e.target.value.trim().toUpperCase();
+            const filtered = query ? sopralluoghi.filter((s) => (s.building_code || '').toUpperCase().includes(query) || (s.unit_name || '').toUpperCase().includes(query) || (s.building_address || '').toUpperCase().includes(query)) : sopralluoghi;
+            document.getElementById('archive-list').innerHTML = this.renderList(filtered);
+            this.bindListEvents();
+        });
+        this.bindListEvents();
+    },
+    renderList(sopralluoghi) {
+        if (sopralluoghi.length === 0) return '<div class="text-center text-hint py-12">Nessun risultato</div>';
+        let cells = '';
+        for (const sop of sopralluoghi) {
+            const roomCount = Object.keys(sop.rooms || {}).length; const date = sop.created_at ? new Date(sop.created_at).toLocaleDateString('it-IT') : '-';
+            cells += UI.cell({ icon: sop.synced ? '\u2601\uFE0F' : '\uD83D\uDCF1', title: `${sop.building_code} - ${sop.unit_name || sop.unit_type || ''}`, subtitle: `${sop.floor || ''} | ${roomCount} vani | ${date}`, dataId: sop.id });
+        }
+        return `<div class="section"><div class="section-body">${cells}</div></div>`;
+    },
+    bindListEvents() { document.querySelectorAll('#archive-list .cell[data-id]').forEach((cell) => { cell.addEventListener('click', () => { App.navigate(`review/${cell.dataset.id}`); }); }); }
+};
+
+// ==================== APP ROUTER ====================
+const App = {
+    currentView: null, currentParams: {},
+    routes: { 'home': HomeView, 'setup': SetupView, 'anagrafica': AnagraficaView, 'rooms': RoomsView, 'room': RoomsView, 'wizard': WizardView, 'review': ReviewView, 'archive': ArchiveView },
+    async init() {
+        if (window.Telegram && Telegram.WebApp) { Telegram.WebApp.ready(); Telegram.WebApp.expand(); try { Telegram.WebApp.setHeaderColor('secondary_bg_color'); } catch (e) {} }
+        await DB.open();
+        Sync.init();
+        window.addEventListener('hashchange', () => this.handleRoute());
+        if (window.Telegram && Telegram.WebApp) { Telegram.WebApp.BackButton.onClick(() => { if (window.history.length > 1) window.history.back(); else this.navigate('home'); }); }
+        if (!location.hash || location.hash === '#') this.navigate('home'); else this.handleRoute();
+    },
+    navigate(route, replace = false) { if (replace) location.replace('#' + route); else location.hash = route; },
+    handleRoute() {
+        const hash = location.hash.slice(1) || 'home'; const parts = hash.split('/'); const viewName = parts[0]; const params = parts.slice(1);
+        const ViewModule = this.routes[viewName]; if (!ViewModule) { this.navigate('home', true); return; }
+        if (window.Telegram && Telegram.WebApp) { if (viewName === 'home') Telegram.WebApp.BackButton.hide(); else Telegram.WebApp.BackButton.show(); }
+        UI.showBack(viewName !== 'home');
+        this.currentView = viewName; this.currentParams = params;
+        const content = document.getElementById('app-content'); content.scrollTop = 0;
+        ViewModule.render(content, params);
+    },
+    getSopralluogoId() { return this.currentParams[0] || null; }
+};
+
+document.addEventListener('DOMContentLoaded', () => { App.init().catch((e) => console.error('App init error:', e)); });
+</script>
+</body>
+</html>
