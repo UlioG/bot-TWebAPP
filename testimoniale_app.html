@@ -4728,6 +4728,13 @@ const App = {
             Telegram.WebApp.ready();
             Telegram.WebApp.expand();
 
+            // Fullscreen (Telegram WebApp SDK 8.0+)
+            try {
+                if (Telegram.WebApp.requestFullscreen) {
+                    Telegram.WebApp.requestFullscreen();
+                }
+            } catch (e) { /* older SDK */ }
+
             // Imposta colore header
             try {
                 Telegram.WebApp.setHeaderColor('secondary_bg_color');
