@@ -714,11 +714,10 @@ textarea.form-input {
 
 /* ===== PY-4 UTILITY ===== */
 .py-4 { padding-top: 4px; padding-bottom: 4px; }
+
     </style>
 </head>
 <body>
-
-    <!-- Header -->
     <header id="app-header">
         <button id="btn-back" class="header-btn hidden" aria-label="Indietro">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -728,21 +727,13 @@ textarea.form-input {
         <h1 id="header-title">Testimoniale</h1>
         <div id="sync-indicator" class="sync-dot offline" title="Offline"></div>
     </header>
-
-    <!-- Main Content Area -->
     <main id="app-content"></main>
-
-    <!-- Toast Notification -->
     <div id="toast" class="toast hidden"></div>
-
-    <!-- Modal Overlay -->
     <div id="modal-overlay" class="modal-overlay hidden">
         <div id="modal-content" class="modal-content"></div>
     </div>
 
     <script>
-
-// ========== config.js ==========
 /**
  * config.js - Vocabolario completo per sopralluoghi (allineato a config.py del bot)
  */
@@ -917,7 +908,6 @@ const CONFIG = {
 };
 
 
-// ========== db.js ==========
 /**
  * db.js - IndexedDB wrapper per Testimoniale WebApp
  * Database: testimoniale_db
@@ -1131,7 +1121,6 @@ const DB = {
 };
 
 
-// ========== events.js ==========
 /**
  * events.js - Event sourcing per Testimoniale WebApp
  * Ogni azione dell'operatore genera un evento salvato in IndexedDB
@@ -1535,7 +1524,6 @@ const Events = {
 };
 
 
-// ========== photos.js ==========
 /**
  * photos.js - Gestione foto: cattura, resize, store in IndexedDB
  */
@@ -1546,15 +1534,39 @@ const Photos = {
     QUALITY: 0.85,
 
     /**
-     * Apri selettore foto (camera o galleria)
+     * Scatta foto con fotocamera
      * Ritorna Promise con { blob, thumbnail } o null se annullato
      */
-    capture(acceptType = 'image/*') {
+    takePhoto() {
+        return this._pickFile(true);
+    },
+
+    /**
+     * Seleziona foto dalla galleria
+     * Ritorna Promise con { blob, thumbnail } o null se annullato
+     */
+    fromGallery() {
+        return this._pickFile(false);
+    },
+
+    /**
+     * Compatibilità: vecchio metodo capture() → apre galleria
+     */
+    capture() {
+        return this._pickFile(false);
+    },
+
+    /**
+     * Helper interno: crea input file, opzionalmente con capture=camera
+     */
+    _pickFile(useCamera = false) {
         return new Promise((resolve) => {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = acceptType;
-            input.capture = 'environment'; // fotocamera posteriore
+            input.accept = 'image/*';
+            if (useCamera) {
+                input.capture = 'environment'; // fotocamera posteriore
+            }
 
             input.onchange = async () => {
                 if (!input.files || !input.files[0]) {
@@ -1569,14 +1581,11 @@ const Photos = {
                     resolve({ blob: resized, thumbnail: thumbnail });
                 } catch (e) {
                     console.error('Errore resize foto:', e);
-                    // Fallback: usa file originale
                     resolve({ blob: file, thumbnail: file });
                 }
             };
 
-            // Se l'utente annulla
             input.addEventListener('cancel', () => resolve(null));
-
             input.click();
         });
     },
@@ -1702,7 +1711,6 @@ const Photos = {
 };
 
 
-// ========== sync.js ==========
 /**
  * sync.js - Sincronizzazione dati con bot Telegram
  */
@@ -1887,7 +1895,6 @@ const Sync = {
 };
 
 
-// ========== components.js ==========
 /**
  * components.js - Componenti UI riutilizzabili
  */
@@ -2216,7 +2223,6 @@ function formatObservationText(obs) {
 }
 
 
-// ========== home.js ==========
 /**
  * home.js - Vista Home: lista sopralluoghi + nuovo
  */
@@ -2304,7 +2310,6 @@ const HomeView = {
 };
 
 
-// ========== setup.js ==========
 /**
  * setup.js - Fase 1: Setup fabbricato e unità
  * Allineato al bot: flow condizionale per tipo unità, planimetrie multiple
@@ -2457,8 +2462,9 @@ const SetupView = {
                 </div>
                 ${planHtml}
                 <div class="px-16 flex-col gap-8">
-                    <button class="btn btn-primary" id="setup-photo">Scatta / Seleziona Foto</button>
-                    ${planPhotos.length > 0 ? '<button class="btn btn-outline" id="setup-add-another">Aggiungi Altra Planimetria</button>' : ''}
+                    <button class="btn btn-primary" id="setup-photo-camera">📷 Scatta Foto</button>
+                    <button class="btn btn-outline" id="setup-photo-gallery">🖼 Carica da Galleria</button>
+                    ${planPhotos.length > 0 ? '<button class="btn btn-outline" id="setup-add-another-camera">📷 Aggiungi Altra (Camera)</button><button class="btn btn-outline" id="setup-add-another-gallery">🖼 Aggiungi Altra (Galleria)</button>' : ''}
                     <button class="btn btn-secondary" id="setup-skip-photo">${planPhotos.length > 0 ? 'Procedi' : 'Salta'}</button>
                 </div>
             `;
@@ -2503,21 +2509,29 @@ const SetupView = {
                 if (value) await this.saveStep(step.key, value);
             });
         } else if (step.type === 'photo') {
-            const handlePhoto = async () => {
-                const result = await Photos.capture();
+            const handlePhoto = async (result) => {
                 if (result) {
                     const { id } = await Photos.save(this.sopId, '__planimetria__', 'planimetria', result.blob, result.thumbnail);
                     await Events.dispatch('upload_planimetria', this.sopId, { photo_id: id });
                     UI.toast('Planimetria caricata');
 
-                    // Ricarica per mostrare aggiornamento e permettere altra planimetria
                     const updatedSop = await DB.getSopralluogo(this.sopId);
                     this.renderStep(document.getElementById('app-content'), updatedSop);
                 }
             };
 
-            document.getElementById('setup-photo')?.addEventListener('click', handlePhoto);
-            document.getElementById('setup-add-another')?.addEventListener('click', handlePhoto);
+            document.getElementById('setup-photo-camera')?.addEventListener('click', async () => {
+                handlePhoto(await Photos.takePhoto());
+            });
+            document.getElementById('setup-photo-gallery')?.addEventListener('click', async () => {
+                handlePhoto(await Photos.fromGallery());
+            });
+            document.getElementById('setup-add-another-camera')?.addEventListener('click', async () => {
+                handlePhoto(await Photos.takePhoto());
+            });
+            document.getElementById('setup-add-another-gallery')?.addEventListener('click', async () => {
+                handlePhoto(await Photos.fromGallery());
+            });
 
             document.getElementById('setup-skip-photo')?.addEventListener('click', () => {
                 App.navigate(`anagrafica/${this.sopId}`);
@@ -2579,7 +2593,6 @@ const SetupView = {
 };
 
 
-// ========== anagrafica.js ==========
 /**
  * anagrafica.js - Fase 1b: Proprietario e presenti al sopralluogo
  * Allineato al bot: collaboratori multipli, flow Persona/Società
@@ -2795,7 +2808,6 @@ const AnagraficaView = {
 };
 
 
-// ========== rooms.js ==========
 /**
  * rooms.js - Fase 2: Gestione vani (lista, aggiunta, scheda vano)
  * Allineato al bot: edit/delete osservazioni, rinomina/elimina vano, elimina foto, tracking superfici
@@ -3022,8 +3034,9 @@ const RoomsView = {
             <div class="section">
                 <div class="section-header">FOTO PANORAMICHE</div>
                 <div class="section-body" id="room-photos-panoramic">
-                    <div class="px-16 py-12">
-                        <button class="btn btn-secondary" id="btn-add-panoramic">Aggiungi Foto Panoramica</button>
+                    <div class="px-16 py-12 flex-col gap-8">
+                        <button class="btn btn-secondary" id="btn-pano-camera">📷 Scatta Panoramica</button>
+                        <button class="btn btn-secondary" id="btn-pano-gallery">🖼 Carica da Galleria</button>
                     </div>
                 </div>
             </div>
@@ -3193,8 +3206,7 @@ const RoomsView = {
         });
 
         // Foto panoramica
-        document.getElementById('btn-add-panoramic')?.addEventListener('click', async () => {
-            const result = await Photos.capture();
+        const savePanoramica = async (result) => {
             if (result) {
                 const { id, filename } = await Photos.save(this.sopId, roomName, 'panoramica', result.blob, result.thumbnail);
                 await Events.dispatch('add_photo', this.sopId, {
@@ -3207,6 +3219,14 @@ const RoomsView = {
                 const updatedSop = await DB.getSopralluogo(this.sopId);
                 this.renderRoomCard(document.getElementById('app-content'), updatedSop, roomName);
             }
+        };
+
+        document.getElementById('btn-pano-camera')?.addEventListener('click', async () => {
+            savePanoramica(await Photos.takePhoto());
+        });
+
+        document.getElementById('btn-pano-gallery')?.addEventListener('click', async () => {
+            savePanoramica(await Photos.fromGallery());
         });
 
         // Aggiungi osservazione
@@ -3239,7 +3259,6 @@ const RoomsView = {
 };
 
 
-// ========== wizard.js ==========
 /**
  * wizard.js - Wizard Osservazione completo (allineato al bot)
  *
@@ -3979,17 +3998,17 @@ const WizardView = {
     // ========== STEP: FOTO DETTAGLIO ==========
     renderPhoto(container) {
         UI.setTitle('Foto Dettaglio');
-        let html = this._wizardHeader('Foto del difetto', 'Scatta una foto di dettaglio');
+        let html = this._wizardHeader('Foto del difetto', 'Scatta o seleziona una foto di dettaglio');
         html += `<div class="empty-state" style="padding: 24px;"><div class="empty-state-icon">📸</div></div>
         <div class="px-16 py-12 flex-col gap-8">
-            <button class="btn btn-primary" id="btn-take-photo">Scatta / Seleziona Foto</button>
+            <button class="btn btn-primary" id="btn-take-photo">📷 Scatta Foto</button>
+            <button class="btn btn-outline" id="btn-gallery-photo">🖼 Carica da Galleria</button>
             <button class="btn btn-secondary" id="btn-skip-photo">Salta (senza foto)</button>
         </div>`;
         html += this._backButton();
         container.innerHTML = html;
 
-        document.getElementById('btn-take-photo').addEventListener('click', async () => {
-            const result = await Photos.capture();
+        const savePhoto = async (result) => {
             if (result) {
                 const { id, filename } = await Photos.save(
                     this.sopId, this.roomName, 'dettaglio',
@@ -4008,6 +4027,14 @@ const WizardView = {
                 this.step = 'confirm';
                 this.renderStep();
             }
+        };
+
+        document.getElementById('btn-take-photo').addEventListener('click', async () => {
+            savePhoto(await Photos.takePhoto());
+        });
+
+        document.getElementById('btn-gallery-photo').addEventListener('click', async () => {
+            savePhoto(await Photos.fromGallery());
         });
 
         document.getElementById('btn-skip-photo').addEventListener('click', () => {
@@ -4153,7 +4180,6 @@ const WizardView = {
 };
 
 
-// ========== review.js ==========
 /**
  * review.js - Riepilogo sopralluogo e generazione report
  * Allineato al bot: raggruppamento osservazioni per elemento, V.F. renumbering, modifica testo manuale, firmatari
@@ -4619,7 +4645,6 @@ const ReviewView = {
 };
 
 
-// ========== archive.js ==========
 /**
  * archive.js - Archivio sopralluoghi completati
  */
@@ -4699,7 +4724,6 @@ const ArchiveView = {
 };
 
 
-// ========== app.js (standalone - no service worker) ==========
 /**
  * app.js - Router SPA e inizializzazione Telegram WebApp
  */
@@ -4747,7 +4771,7 @@ const App = {
         // Init sync indicator
         Sync.init();
 
-        // Router: ascolta hash changes
+                // Router: ascolta hash changes
         window.addEventListener('hashchange', () => this.handleRoute());
 
         // Gestisci tasto back di Telegram
