@@ -1,0 +1,4829 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2481cc">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Testimoniale Metro C</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+/* ===== RESET & BASE ===== */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #000000);
+    --hint: var(--tg-theme-hint-color, #999999);
+    --link: var(--tg-theme-link-color, #2481cc);
+    --btn: var(--tg-theme-button-color, #2481cc);
+    --btn-text: var(--tg-theme-button-text-color, #ffffff);
+    --secondary-bg: var(--tg-theme-secondary-bg-color, #f0f0f0);
+    --section-bg: var(--tg-theme-section-bg-color, #ffffff);
+    --section-header: var(--tg-theme-section-header-text-color, #6d6d72);
+    --separator: var(--tg-theme-section-separator-color, #e0e0e0);
+    --destructive: var(--tg-theme-destructive-text-color, #ff3b30);
+
+    --radius: 12px;
+    --radius-sm: 8px;
+    --header-h: 52px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.4;
+    background-color: var(--secondary-bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== HEADER ===== */
+#app-header {
+    display: flex;
+    align-items: center;
+    height: var(--header-h);
+    padding: 0 12px;
+    background: var(--bg);
+    border-bottom: 0.5px solid var(--separator);
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+#header-title {
+    flex: 1;
+    font-size: 17px;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.header-btn {
+    background: none;
+    border: none;
+    color: var(--link);
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+}
+
+.sync-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    min-width: 10px;
+    margin-left: 8px;
+}
+.sync-dot.online { background: #34c759; }
+.sync-dot.offline { background: #ff9500; }
+.sync-dot.syncing { background: #007aff; animation: pulse 1s infinite; }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* ===== MAIN CONTENT ===== */
+#app-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--safe-bottom);
+}
+
+/* ===== SECTIONS (Telegram-style grouped cells) ===== */
+.section {
+    margin: 16px 0;
+}
+
+.section-header {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--section-header);
+    text-transform: uppercase;
+    padding: 0 16px 8px;
+}
+
+.section-body {
+    background: var(--section-bg);
+    border-top: 0.5px solid var(--separator);
+    border-bottom: 0.5px solid var(--separator);
+}
+
+/* ===== CELLS (list items) ===== */
+.cell {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    min-height: 44px;
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+}
+
+.cell:active {
+    background: var(--secondary-bg);
+}
+
+.cell + .cell {
+    border-top: 0.5px solid var(--separator);
+    margin-left: 16px;
+    padding-left: 0;
+}
+
+.cell-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.cell-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.cell-title {
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.cell-subtitle {
+    font-size: 13px;
+    color: var(--hint);
+    margin-top: 2px;
+}
+
+.cell-chevron {
+    color: var(--hint);
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+.cell-badge {
+    background: var(--btn);
+    color: var(--btn-text);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 14px 20px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.btn:active { opacity: 0.7; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-primary {
+    background: var(--btn);
+    color: var(--btn-text);
+}
+
+.btn-secondary {
+    background: var(--secondary-bg);
+    color: var(--text);
+}
+
+.btn-destructive {
+    background: transparent;
+    color: var(--destructive);
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1.5px solid var(--btn);
+    color: var(--btn);
+}
+
+/* ===== BUTTON GRID ===== */
+.btn-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 12px 16px;
+}
+
+.btn-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.btn-grid .btn-choice {
+    padding: 12px 8px;
+    border: 1.5px solid var(--separator);
+    border-radius: var(--radius-sm);
+    background: var(--section-bg);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    word-break: break-word;
+}
+
+.btn-choice:active,
+.btn-choice.selected {
+    background: var(--btn);
+    color: var(--btn-text);
+    border-color: var(--btn);
+}
+
+.btn-choice.completed {
+    border-color: #34c759;
+    position: relative;
+}
+
+.btn-choice.completed::after {
+    content: '\2713';
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 11px;
+    color: #34c759;
+}
+
+/* ===== FORM ELEMENTS ===== */
+.form-group {
+    padding: 12px 16px;
+}
+
+.form-label {
+    display: block;
+    font-size: 13px;
+    color: var(--section-header);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px;
+    border: 1.5px solid var(--separator);
+    border-radius: var(--radius-sm);
+    background: var(--section-bg);
+    color: var(--text);
+    font-size: 16px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.form-input:focus {
+    border-color: var(--btn);
+}
+
+.form-input::placeholder {
+    color: var(--hint);
+}
+
+textarea.form-input {
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* ===== STEPPER ===== */
+.stepper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 16px;
+    gap: 4px;
+}
+
+.stepper-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--separator);
+    transition: all 0.2s;
+}
+
+.stepper-dot.active {
+    background: var(--btn);
+    width: 24px;
+    border-radius: 4px;
+}
+
+.stepper-dot.done {
+    background: #34c759;
+}
+
+/* ===== GROUPED MENU (observation menus) ===== */
+.menu-group {
+    margin: 8px 0;
+}
+
+.menu-group-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--section-header);
+    padding: 8px 16px 4px;
+}
+
+.menu-group-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 16px 8px;
+}
+
+.menu-chip {
+    padding: 8px 14px;
+    border: 1px solid var(--separator);
+    border-radius: 20px;
+    background: var(--section-bg);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.menu-chip:active,
+.menu-chip.selected {
+    background: var(--btn);
+    color: var(--btn-text);
+    border-color: var(--btn);
+}
+
+/* Multi-select chips */
+.menu-chip.check {
+    padding-left: 12px;
+}
+.menu-chip.check.selected::before {
+    content: '\2713 ';
+}
+
+/* ===== PHOTO ===== */
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 8px 16px;
+}
+
+.photo-thumb {
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+}
+
+.photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.photo-add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--secondary-bg);
+    border: 2px dashed var(--separator);
+    border-radius: var(--radius-sm);
+    aspect-ratio: 1;
+    cursor: pointer;
+    color: var(--hint);
+    font-size: 28px;
+}
+
+.photo-add:active { opacity: 0.6; }
+
+/* ===== OBSERVATION CARD ===== */
+.obs-card {
+    background: var(--section-bg);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin: 6px 16px;
+    border-left: 3px solid var(--btn);
+}
+
+.obs-card-element {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--link);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.obs-card-text {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.obs-card-photo {
+    font-size: 12px;
+    color: var(--hint);
+    margin-top: 4px;
+}
+
+/* ===== STATUS BADGES ===== */
+.status-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.status-accessible { background: #e8f5e9; color: #2e7d32; }
+.status-non_accessibile { background: #fff3e0; color: #e65100; }
+.status-non_valutabile { background: #fce4ec; color: #c62828; }
+.status-non_autorizzato { background: #f3e5f5; color: #6a1b9a; }
+.status-completed { background: #e8f5e9; color: #2e7d32; }
+.status-in_progress { background: #e3f2fd; color: #1565c0; }
+
+/* ===== TOAST ===== */
+.toast {
+    position: fixed;
+    bottom: calc(20px + var(--safe-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 1000;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+}
+
+.toast.hidden {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+}
+
+/* ===== MODAL ===== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 500;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.modal-overlay.hidden { display: none; }
+
+.modal-content {
+    background: var(--bg);
+    border-radius: var(--radius) var(--radius) 0 0;
+    width: 100%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 20px 16px calc(20px + var(--safe-bottom));
+    animation: slideUp 0.25s ease-out;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+/* ===== EMPTY STATE ===== */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 32px;
+    text-align: center;
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state-title {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.empty-state-text {
+    font-size: 14px;
+    color: var(--hint);
+}
+
+/* ===== UTILITIES ===== */
+.hidden { display: none !important; }
+.px-16 { padding-left: 16px; padding-right: 16px; }
+.py-12 { padding-top: 12px; padding-bottom: 12px; }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-16 { margin-bottom: 16px; }
+.text-center { text-align: center; }
+.text-hint { color: var(--hint); font-size: 13px; }
+.text-link { color: var(--link); }
+.gap-8 { gap: 8px; }
+.flex-col { display: flex; flex-direction: column; }
+
+/* ===== WIZARD STEP HEADER ===== */
+.wizard-header {
+    padding: 16px;
+    text-align: center;
+}
+
+.wizard-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.wizard-subtitle {
+    font-size: 13px;
+    color: var(--hint);
+}
+
+/* ===== PREVIEW BOX ===== */
+.preview-box {
+    background: var(--secondary-bg);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    margin: 8px 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    font-style: italic;
+    color: var(--text);
+    border-left: 3px solid var(--link);
+}
+
+/* ===== SCROLLBAR (minimal) ===== */
+#app-content::-webkit-scrollbar { width: 0; }
+
+/* ===== PHASE TABS ===== */
+.phase-tabs {
+    display: flex;
+    background: var(--section-bg);
+    border-bottom: 0.5px solid var(--separator);
+}
+
+.phase-tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--hint);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.phase-tab.active {
+    color: var(--btn);
+    border-bottom-color: var(--btn);
+}
+
+/* ===== OBSERVATION CARD ACTIONS ===== */
+.obs-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+}
+
+.obs-card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.obs-btn-delete {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+}
+
+.obs-btn-delete:active { opacity: 1; }
+
+/* ===== PHOTO DELETE BUTTON ===== */
+.photo-thumb {
+    position: relative;
+}
+
+.photo-delete-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ===== MISSING SURFACES WARNING ===== */
+.missing-surfaces {
+    background: #fff3e0;
+    color: #e65100;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    margin: 4px 16px;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid #e65100;
+}
+
+/* ===== SMALL BUTTON ===== */
+.btn-sm {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* ===== CHIP LIST (inline) ===== */
+.chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* ===== BUTTON GRID SINGLE COLUMN ===== */
+.btn-grid-1 {
+    grid-template-columns: 1fr;
+}
+
+/* ===== PY-4 UTILITY ===== */
+.py-4 { padding-top: 4px; padding-bottom: 4px; }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header id="app-header">
+        <button id="btn-back" class="header-btn hidden" aria-label="Indietro">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6"/>
+            </svg>
+        </button>
+        <h1 id="header-title">Testimoniale</h1>
+        <div id="sync-indicator" class="sync-dot offline" title="Offline"></div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="app-content"></main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Modal Overlay -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div id="modal-content" class="modal-content"></div>
+    </div>
+
+    <script>
+
+// ========== config.js ==========
+/**
+ * config.js - Vocabolario completo per sopralluoghi (allineato a config.py del bot)
+ */
+const CONFIG = {
+    // Tipi di unità
+    UNIT_TYPES: ['Abitazione', 'Ufficio', 'Negozio', 'Garage', 'Cantina', 'Soffitta', 'Parti Comuni'],
+
+    // Tipi di vano
+    ROOM_TYPES: ['INGRESSO', 'STANZA', 'DISIMPEGNO', 'CORRIDOIO', 'BAGNO', 'SOGGIORNO', 'SALONE', 'CUCINA', 'DEPOSITO', 'UFFICIO'],
+
+    // Tipi soffitto
+    CEIL_TYPES: ['Controsoffitto', 'Niente'],
+
+    // Elementi ispezionabili (allineati al bot: "Pareti" non "Parete", "Elemento/Varco" non "Infisso")
+    ELEMENTS: ['Pareti', 'Soffitto', 'Pavimento', 'Elemento/Varco', 'Balcone'],
+
+    // Superfici obbligatorie (per tracking completamento)
+    REQUIRED_SURFACES: ['Parete A', 'Parete B', 'Parete C', 'Parete D', 'Soffitto', 'Pavimento'],
+
+    // Etichette pareti
+    WALL_LABELS: ['Parete A', 'Parete B', 'Parete C', 'Parete D'],
+
+    // Piani disponibili
+    FLOORS: ['Interrato', 'Piano Terra', 'Piano 1', 'Piano 2', 'Piano 3', 'Piano 4', 'Piano 5', 'Copertura'],
+
+    // Scale
+    STAIRS: ['Scala A', 'Scala B', 'Scala C', 'Scala D', 'Scala Unica'],
+
+    // Pre-check options per wizard (5 opzioni come il bot)
+    PRE_CHECK: [
+        { value: 'NDR', label: 'NDR (Nulla da Rilevare)', icon: '🟢' },
+        { value: 'NON_VISIBILE', label: 'NON VISIBILE', icon: '👁️' },
+        { value: 'INGOMBRA', label: 'INGOMBRA (Non Ispezionabile)', icon: '⛔' },
+        { value: 'PARZIALE', label: 'PARZIALMENTE INGOMBRA', icon: '⚠️' },
+        { value: 'PROCEDI', label: 'PROCEDI', icon: '⏭' }
+    ],
+
+    // ========== POSIZIONI (allineate a config.py) ==========
+
+    // Posizioni PARETE (flat list come il bot)
+    POS_WALL: [
+        'in alto', 'in basso', 'a SX', 'a DX', 'al centro',
+        'DD "spigolo"', 'intera superficie'
+    ],
+
+    // Posizioni SOFFITTO (include travetto, varco, elemento)
+    POS_CEIL: [
+        'in alto', 'in basso', 'a SX', 'a DX', 'al centro',
+        'al travetto', 'presso varco', 'presso elemento',
+        'intera superficie'
+    ],
+
+    // Posizioni PAVIMENTO (come soffitto ma senza travetto)
+    POS_FLOOR: [
+        'in alto', 'in basso', 'a SX', 'a DX', 'al centro',
+        'presso varco', 'presso elemento',
+        'intera superficie'
+    ],
+
+    // Posizioni BALCONE (stesse del soffitto)
+    POS_BALCONE: [
+        'in alto', 'in basso', 'a SX', 'a DX', 'al centro',
+        'al travetto', 'presso varco', 'presso elemento',
+        'intera superficie'
+    ],
+
+    // ========== DIFETTI (allineati a config.py) ==========
+
+    // Difetti comuni (per Pareti, Soffitto, Pavimento, Balcone)
+    DEFECTS_COMMON: [
+        'lesione', 'microlesione', 'filatura', 'distacco',
+        'umidità', 'avvallamento', 'degrado superficiale'
+    ],
+
+    // Difetti Elemento/Varco (comuni + specifici varco)
+    DEFECTS_VARCO: [
+        'lesione', 'microlesione', 'filatura', 'distacco',
+        'umidità', 'avvallamento', 'degrado superficiale',
+        'rottura', 'non funzionante', 'fuori asse'
+    ],
+
+    // ========== SPECIFICHE DIFETTO (step separato, multi-select) ==========
+    DEFECT_SPECIFICS: [
+        'passante', 'a ragnatela', 'discontinua',
+        'capillare', 'ramificata', 'in serie'
+    ],
+
+    // ========== ATTRIBUTI DIFETTO (step separato, multi-select) ==========
+    ATTRIBUTES: [
+        'VT', 'OZ', 'DG',
+        'DG alto SX', 'DG alto DX', 'DG basso SX', 'DG basso DX',
+        'pseudo VT', 'pseudo OZ', 'irregolare'
+    ],
+
+    // ========== ELEMENTO/VARCO (ex Infisso) ==========
+
+    // Sotto elementi (tipi di varco)
+    VARCO_SUB_ELEMENTS: [
+        'finestra', 'portafinestra', 'porta interna',
+        'porta di accesso', 'lucernario', 'apertura', 'arco',
+        'arco con tamponatura', 'varco con tamponatura'
+    ],
+
+    // Posizione elemento (su quale parete/superficie si trova)
+    VARCO_LOCATIONS: ['Parete A', 'Parete B', 'Parete C', 'Parete D', 'Soffitto', 'Pavimento'],
+
+    // Posizione difetto sull'infisso/varco
+    VARCO_DEFECT_POSITIONS: [
+        'telaio', 'anta', 'vetro', 'imbotte', 'davanzale', 'soglia',
+        'architrave', 'piattabanda', 'spalletta', 'piedritto',
+        'rene', 'chiave', 'cassonetto', 'sopra'
+    ],
+
+    // ========== BALCONE ==========
+
+    // Sotto elementi Balcone
+    BALCONE_SUB_ELEMENTS: ['Parete A', 'Parete B', 'Parete C', 'Parete D', 'Sotto balcone superiore', 'Pavimento'],
+
+    // ========== PROSECUZIONE ==========
+
+    // Destinazioni possibili per prosecuzione difetto
+    PROSECUTION_TARGETS: ['Parete A', 'Parete B', 'Parete C', 'Parete D', 'Soffitto', 'Pavimento'],
+
+    // ========== STATI VANO ==========
+    ROOM_STATUSES: ['accessible', 'non_accessibile', 'non_valutabile', 'non_autorizzato'],
+
+    ROOM_STATUS_LABELS: {
+        accessible: 'Accessibile',
+        non_accessibile: 'Non Accessibile',
+        non_valutabile: 'Non Valutabile',
+        non_autorizzato: 'Non Autorizzato'
+    },
+
+    // ========== DISCLAIMER TYPES (per note globali) ==========
+    DISCLAIMER_TYPES: [
+        { value: 'UNIT_NO_FOTO', label: 'Unità non fotografabile' },
+        { value: 'NON_ACCESSIBILE', label: 'Vano non accessibile' },
+        { value: 'NON_VALUTABILE', label: 'Vano non valutabile' },
+        { value: 'NON_AUTORIZZATO', label: 'Vano non autorizzato' }
+    ],
+
+    /**
+     * Ritorna posizioni per un elemento dato
+     */
+    getPositions(element) {
+        switch (element) {
+            case 'Pareti': return this.POS_WALL;
+            case 'Soffitto': return this.POS_CEIL;
+            case 'Pavimento': return this.POS_FLOOR;
+            case 'Balcone': return this.POS_BALCONE;
+            case 'Elemento/Varco': return this.VARCO_DEFECT_POSITIONS;
+            default: return this.POS_WALL;
+        }
+    },
+
+    /**
+     * Ritorna fenomeni per un elemento dato
+     */
+    getPhenomena(element) {
+        switch (element) {
+            case 'Pareti':
+            case 'Soffitto':
+            case 'Pavimento':
+            case 'Balcone':
+                return this.DEFECTS_COMMON;
+            case 'Elemento/Varco':
+                return this.DEFECTS_VARCO;
+            default:
+                return this.DEFECTS_COMMON;
+        }
+    }
+};
+
+
+// ========== db.js ==========
+/**
+ * db.js - IndexedDB wrapper per Testimoniale WebApp
+ * Database: testimoniale_db
+ * Stores: events, sopralluoghi, photos
+ */
+const DB = {
+    _db: null,
+    DB_NAME: 'testimoniale_db',
+    DB_VERSION: 1,
+
+    /**
+     * Apre/crea il database IndexedDB
+     */
+    async open() {
+        if (this._db) return this._db;
+
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+
+                // Store: events (event sourcing)
+                if (!db.objectStoreNames.contains('events')) {
+                    const evStore = db.createObjectStore('events', { keyPath: 'id', autoIncrement: true });
+                    evStore.createIndex('sopralluogo_id', 'sopralluogo_id', { unique: false });
+                    evStore.createIndex('type', 'type', { unique: false });
+                    evStore.createIndex('timestamp', 'timestamp', { unique: false });
+                }
+
+                // Store: sopralluoghi (stato materializzato)
+                if (!db.objectStoreNames.contains('sopralluoghi')) {
+                    const sopStore = db.createObjectStore('sopralluoghi', { keyPath: 'id' });
+                    sopStore.createIndex('building_code', 'building_code', { unique: false });
+                    sopStore.createIndex('synced', 'synced', { unique: false });
+                    sopStore.createIndex('created_at', 'created_at', { unique: false });
+                }
+
+                // Store: photos (blob storage)
+                if (!db.objectStoreNames.contains('photos')) {
+                    const photoStore = db.createObjectStore('photos', { keyPath: 'id' });
+                    photoStore.createIndex('sopralluogo_id', 'sopralluogo_id', { unique: false });
+                    photoStore.createIndex('room_name', 'room_name', { unique: false });
+                    photoStore.createIndex('type', 'type', { unique: false });
+                    photoStore.createIndex('synced', 'synced', { unique: false });
+                }
+            };
+
+            request.onsuccess = (e) => {
+                this._db = e.target.result;
+                resolve(this._db);
+            };
+
+            request.onerror = (e) => {
+                console.error('IndexedDB open error:', e.target.error);
+                reject(e.target.error);
+            };
+        });
+    },
+
+    /**
+     * Ottieni una transazione per uno store
+     */
+    _tx(storeName, mode = 'readonly') {
+        return this._db.transaction(storeName, mode).objectStore(storeName);
+    },
+
+    // ========== GENERIC CRUD ==========
+
+    async add(storeName, data) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const tx = this._db.transaction(storeName, 'readwrite');
+            const store = tx.objectStore(storeName);
+            const request = store.add(data);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    async put(storeName, data) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const tx = this._db.transaction(storeName, 'readwrite');
+            const store = tx.objectStore(storeName);
+            const request = store.put(data);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    async get(storeName, key) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const store = this._tx(storeName);
+            const request = store.get(key);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    async getAll(storeName) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const store = this._tx(storeName);
+            const request = store.getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    async delete(storeName, key) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const tx = this._db.transaction(storeName, 'readwrite');
+            const store = tx.objectStore(storeName);
+            const request = store.delete(key);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    // ========== QUERY BY INDEX ==========
+
+    async getByIndex(storeName, indexName, value) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            const store = this._tx(storeName);
+            const index = store.index(indexName);
+            const request = index.getAll(value);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    // ========== SOPRALLUOGHI ==========
+
+    async getSopralluogo(id) {
+        return this.get('sopralluoghi', id);
+    },
+
+    async getAllSopralluoghi() {
+        const all = await this.getAll('sopralluoghi');
+        // Ordina per data creazione decrescente
+        return all.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+    },
+
+    async saveSopralluogo(data) {
+        data.updated_at = Date.now();
+        return this.put('sopralluoghi', data);
+    },
+
+    async deleteSopralluogo(id) {
+        // Elimina anche eventi e foto collegati
+        const events = await this.getByIndex('events', 'sopralluogo_id', id);
+        const photos = await this.getByIndex('photos', 'sopralluogo_id', id);
+
+        const tx = this._db.transaction(['sopralluoghi', 'events', 'photos'], 'readwrite');
+
+        tx.objectStore('sopralluoghi').delete(id);
+        for (const ev of events) {
+            tx.objectStore('events').delete(ev.id);
+        }
+        for (const ph of photos) {
+            tx.objectStore('photos').delete(ph.id);
+        }
+
+        return new Promise((resolve, reject) => {
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+        });
+    },
+
+    // ========== EVENTS ==========
+
+    async addEvent(event) {
+        return this.add('events', event);
+    },
+
+    async getEventsBySopralluogo(sopralluogoId) {
+        const events = await this.getByIndex('events', 'sopralluogo_id', sopralluogoId);
+        return events.sort((a, b) => a.timestamp - b.timestamp);
+    },
+
+    async getUnsyncedEvents() {
+        const all = await this.getAll('events');
+        return all.filter((e) => !e.synced);
+    },
+
+    // ========== PHOTOS ==========
+
+    async addPhoto(photoData) {
+        return this.put('photos', photoData);
+    },
+
+    async getPhoto(id) {
+        return this.get('photos', id);
+    },
+
+    async getPhotosBySopralluogo(sopralluogoId) {
+        return this.getByIndex('photos', 'sopralluogo_id', sopralluogoId);
+    },
+
+    async getPhotosByRoom(roomName) {
+        return this.getByIndex('photos', 'room_name', roomName);
+    },
+
+    async getUnsyncedPhotos() {
+        return this.getByIndex('photos', 'synced', false);
+    }
+};
+
+
+// ========== events.js ==========
+/**
+ * events.js - Event sourcing per Testimoniale WebApp
+ * Ogni azione dell'operatore genera un evento salvato in IndexedDB
+ * Allineato al bot: supporta counterwall, prosecution, specifics, non_visibile, parz_ingombra
+ */
+const Events = {
+    /**
+     * Genera un UUID v4
+     */
+    uuid() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    },
+
+    /**
+     * Ottieni user_id da Telegram WebApp (o fallback)
+     */
+    getUserId() {
+        try {
+            if (window.Telegram && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) {
+                return Telegram.WebApp.initDataUnsafe.user.id;
+            }
+        } catch (e) { /* ignore */ }
+        return 0; // fallback per test in browser
+    },
+
+    /**
+     * Dispatch: crea evento, salvalo in IndexedDB, applica allo stato
+     */
+    async dispatch(type, sopralluogoId, payload) {
+        const event = {
+            sopralluogo_id: sopralluogoId,
+            type: type,
+            timestamp: Date.now(),
+            user_id: this.getUserId(),
+            payload: payload || {},
+            synced: false
+        };
+
+        // Salva evento
+        await DB.addEvent(event);
+
+        // Applica allo stato materializzato
+        await this.applyEvent(event);
+
+        return event;
+    },
+
+    /**
+     * Applica un singolo evento allo stato materializzato (sopralluogo)
+     */
+    async applyEvent(event) {
+        let sop = await DB.getSopralluogo(event.sopralluogo_id);
+        if (!sop && event.type !== 'create_sopralluogo') {
+            console.warn('Sopralluogo non trovato per evento:', event);
+            return;
+        }
+
+        const p = event.payload;
+
+        switch (event.type) {
+            case 'create_sopralluogo':
+                sop = {
+                    id: event.sopralluogo_id,
+                    building_code: p.building_code || '',
+                    building_address: p.building_address || '',
+                    floor: p.floor || '',
+                    stair: p.stair || '',
+                    unit_type: p.unit_type || '',
+                    subalterno: p.subalterno || '',
+                    unit_internal: p.unit_internal || '',
+                    unit_name: '',
+                    owner: null,
+                    attendees: { metro_tech: '', metro_coll: [], rm: '' },
+                    signers: { metro_tech: '', rm: '', metro_coll: '' },
+                    phase: 1,
+                    rooms: {},
+                    global_notes: [],
+                    planimetria_photos: [],
+                    created_at: event.timestamp,
+                    updated_at: event.timestamp,
+                    start_time: new Date(event.timestamp).toISOString(),
+                    synced: false
+                };
+                break;
+
+            case 'update_setup':
+                Object.assign(sop, p);
+                break;
+
+            case 'set_anagrafica':
+                if (p.owner !== undefined) sop.owner = p.owner;
+                if (p.attendees !== undefined) {
+                    sop.attendees = { ...sop.attendees, ...p.attendees };
+                }
+                if (p.signers !== undefined) {
+                    sop.signers = { ...sop.signers, ...p.signers };
+                }
+                break;
+
+            case 'upload_planimetria':
+                if (!sop.planimetria_photos) sop.planimetria_photos = [];
+                sop.planimetria_photos.push(p.photo_id);
+                // Compatibilità: mantieni anche il singolo ID
+                sop.planimetria_photo_id = p.photo_id;
+                break;
+
+            case 'delete_planimetria':
+                if (sop.planimetria_photos) {
+                    sop.planimetria_photos = sop.planimetria_photos.filter(id => id !== p.photo_id);
+                    sop.planimetria_photo_id = sop.planimetria_photos[sop.planimetria_photos.length - 1] || null;
+                }
+                break;
+
+            case 'complete_phase':
+                sop.phase = p.phase;
+                break;
+
+            case 'add_vano':
+                if (!sop.rooms[p.full_name]) {
+                    sop.rooms[p.full_name] = {
+                        room_number: p.room_number,
+                        room_name: p.room_name,
+                        status: 'accessible',
+                        finishes: null,
+                        observations: [],
+                        photos: [],
+                        completed_surfaces: [],
+                        manual_text: null
+                    };
+                }
+                break;
+
+            case 'rename_vano': {
+                if (sop.rooms[p.old_name]) {
+                    const roomData = sop.rooms[p.old_name];
+                    roomData.room_number = p.new_room_number || roomData.room_number;
+                    roomData.room_name = p.new_room_name || roomData.room_name;
+                    delete sop.rooms[p.old_name];
+                    sop.rooms[p.new_full_name] = roomData;
+                }
+                break;
+            }
+
+            case 'delete_vano':
+                delete sop.rooms[p.room_name];
+                break;
+
+            case 'set_room_status':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].status = p.status;
+                }
+                break;
+
+            case 'set_room_finishes':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].finishes = p.ceiling_type;
+                }
+                break;
+
+            case 'add_observation': {
+                if (sop.rooms[p.room_name]) {
+                    const obs = {
+                        element: p.element,
+                        wall: p.wall || null,
+                        position: p.position || null,
+                        positions_selected: p.positions_selected || [],
+                        phenomenon: p.phenomenon,
+                        specifics: p.specifics || [],
+                        attributes: p.attributes || [],
+                        notes: p.notes || '',
+                        photo_id: p.photo_id || null,
+                        has_counterwall: p.has_counterwall || false,
+                        non_visibile: p.non_visibile || false,
+                        parz_ingombra: p.parz_ingombra || false,
+                        prosecutions: p.prosecutions || [],
+                        // Elemento/Varco
+                        infisso_type: p.infisso_type || null,
+                        infisso_location: p.infisso_location || null,
+                        infisso_wall: p.infisso_wall || null,
+                        infisso_which: p.infisso_which || null,
+                        infisso_sub_pos: p.infisso_sub_pos || null,
+                        // Balcone
+                        balcone_sub: p.balcone_sub || null,
+                        // Timestamp
+                        timestamp: event.timestamp
+                    };
+                    sop.rooms[p.room_name].observations.push(obs);
+
+                    // Aggiorna superfici completate
+                    if (p.element === 'Pareti' && p.wall) {
+                        const surfaces = sop.rooms[p.room_name].completed_surfaces || [];
+                        if (!surfaces.includes(p.wall)) surfaces.push(p.wall);
+                        sop.rooms[p.room_name].completed_surfaces = surfaces;
+                    } else if (['Soffitto', 'Pavimento'].includes(p.element)) {
+                        const surfaces = sop.rooms[p.room_name].completed_surfaces || [];
+                        if (!surfaces.includes(p.element)) surfaces.push(p.element);
+                        sop.rooms[p.room_name].completed_surfaces = surfaces;
+                    }
+                }
+                break;
+            }
+
+            case 'add_photo':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].photos.push({
+                        photo_id: p.photo_id,
+                        type: p.type,
+                        filename: p.filename
+                    });
+                }
+                break;
+
+            case 'delete_photo':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].photos = sop.rooms[p.room_name].photos
+                        .filter(ph => ph.photo_id !== p.photo_id);
+                }
+                break;
+
+            case 'set_room_ndr':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].observations.push({
+                        element: p.element,
+                        wall: p.wall || null,
+                        balcone_sub: p.balcone_sub || null,
+                        position: null,
+                        positions_selected: [],
+                        phenomenon: 'NDR',
+                        specifics: [],
+                        attributes: [],
+                        notes: '',
+                        photo_id: null,
+                        has_counterwall: p.has_counterwall || false,
+                        prosecutions: [],
+                        timestamp: event.timestamp
+                    });
+                    // Aggiorna superfici completate
+                    this._updateCompletedSurfaces(sop, p);
+                }
+                break;
+
+            case 'set_room_ingombra':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].observations.push({
+                        element: p.element,
+                        wall: p.wall || null,
+                        balcone_sub: p.balcone_sub || null,
+                        position: null,
+                        positions_selected: [],
+                        phenomenon: 'INGOMBRA',
+                        specifics: [],
+                        attributes: [],
+                        notes: '',
+                        photo_id: null,
+                        has_counterwall: p.has_counterwall || false,
+                        prosecutions: [],
+                        timestamp: event.timestamp
+                    });
+                    this._updateCompletedSurfaces(sop, p);
+                }
+                break;
+
+            case 'set_room_non_visibile':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].observations.push({
+                        element: p.element,
+                        wall: p.wall || null,
+                        balcone_sub: p.balcone_sub || null,
+                        position: null,
+                        positions_selected: [],
+                        phenomenon: 'NON VISIBILE',
+                        specifics: [],
+                        attributes: [],
+                        notes: 'Non Visibile',
+                        photo_id: null,
+                        has_counterwall: p.has_counterwall || false,
+                        non_visibile: true,
+                        prosecutions: [],
+                        timestamp: event.timestamp
+                    });
+                    this._updateCompletedSurfaces(sop, p);
+                }
+                break;
+
+            case 'set_room_parz_ingombra':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].observations.push({
+                        element: p.element,
+                        wall: p.wall || null,
+                        balcone_sub: p.balcone_sub || null,
+                        position: null,
+                        positions_selected: [],
+                        phenomenon: 'PARZIALMENTE INGOMBRA',
+                        specifics: [],
+                        attributes: [],
+                        notes: 'Parzialmente Ingombra',
+                        photo_id: null,
+                        has_counterwall: p.has_counterwall || false,
+                        parz_ingombra: true,
+                        prosecutions: [],
+                        timestamp: event.timestamp
+                    });
+                    this._updateCompletedSurfaces(sop, p);
+                }
+                break;
+
+            case 'edit_observation':
+                if (sop.rooms[p.room_name] && sop.rooms[p.room_name].observations[p.observation_index]) {
+                    Object.assign(sop.rooms[p.room_name].observations[p.observation_index], p.changes);
+                }
+                break;
+
+            case 'delete_observation':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].observations.splice(p.observation_index, 1);
+                }
+                break;
+
+            case 'set_manual_text':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].manual_text = p.text;
+                }
+                break;
+
+            case 'add_global_note':
+                if (!Array.isArray(sop.global_notes)) {
+                    sop.global_notes = sop.global_notes ? [{ type: 'generic', text: sop.global_notes }] : [];
+                }
+                sop.global_notes.push({
+                    type: p.note_type || 'generic',
+                    room_name: p.room_name || null,
+                    text: p.note_text
+                });
+                break;
+
+            case 'delete_global_note':
+                if (Array.isArray(sop.global_notes)) {
+                    sop.global_notes.splice(p.note_index, 1);
+                }
+                break;
+
+            case 'set_signers':
+                sop.signers = { ...sop.signers, ...p };
+                break;
+
+            case 'request_report':
+                sop.report_requested = true;
+                break;
+        }
+
+        sop.updated_at = event.timestamp;
+        sop.synced = false;
+        await DB.saveSopralluogo(sop);
+    },
+
+    /**
+     * Helper: aggiorna superfici completate per un vano
+     */
+    _updateCompletedSurfaces(sop, p) {
+        if (!sop.rooms[p.room_name]) return;
+        const surfaces = sop.rooms[p.room_name].completed_surfaces || [];
+        let surface = null;
+
+        if (p.element === 'Pareti' && p.wall) {
+            surface = p.wall;
+        } else if (['Soffitto', 'Pavimento'].includes(p.element)) {
+            surface = p.element;
+        }
+
+        if (surface && !surfaces.includes(surface)) {
+            surfaces.push(surface);
+            sop.rooms[p.room_name].completed_surfaces = surfaces;
+        }
+    },
+
+    /**
+     * Ricostruisci stato da eventi (replay)
+     */
+    async replayEvents(sopralluogoId) {
+        const events = await DB.getEventsBySopralluogo(sopralluogoId);
+        // Elimina stato corrente
+        await DB.delete('sopralluoghi', sopralluogoId);
+        // Riapplica tutti gli eventi in ordine
+        for (const event of events) {
+            await this.applyEvent(event);
+        }
+        return DB.getSopralluogo(sopralluogoId);
+    },
+
+    // ========== HELPER: crea un nuovo sopralluogo ==========
+
+    async createSopralluogo(data) {
+        const id = this.uuid();
+        await this.dispatch('create_sopralluogo', id, data);
+        return id;
+    }
+};
+
+
+// ========== photos.js ==========
+/**
+ * photos.js - Gestione foto: cattura, resize, store in IndexedDB
+ */
+const Photos = {
+    MAX_WIDTH: 1920,
+    MAX_HEIGHT: 1920,
+    THUMB_SIZE: 200,
+    QUALITY: 0.85,
+
+    /**
+     * Apri selettore foto (camera o galleria)
+     * Ritorna Promise con { blob, thumbnail } o null se annullato
+     */
+    capture(acceptType = 'image/*') {
+        return new Promise((resolve) => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = acceptType;
+            input.capture = 'environment'; // fotocamera posteriore
+
+            input.onchange = async () => {
+                if (!input.files || !input.files[0]) {
+                    resolve(null);
+                    return;
+                }
+
+                const file = input.files[0];
+                try {
+                    const resized = await this.resizeImage(file, this.MAX_WIDTH, this.MAX_HEIGHT, this.QUALITY);
+                    const thumbnail = await this.resizeImage(file, this.THUMB_SIZE, this.THUMB_SIZE, 0.6);
+                    resolve({ blob: resized, thumbnail: thumbnail });
+                } catch (e) {
+                    console.error('Errore resize foto:', e);
+                    // Fallback: usa file originale
+                    resolve({ blob: file, thumbnail: file });
+                }
+            };
+
+            // Se l'utente annulla
+            input.addEventListener('cancel', () => resolve(null));
+
+            input.click();
+        });
+    },
+
+    /**
+     * Ridimensiona un'immagine mantenendo le proporzioni
+     */
+    resizeImage(file, maxW, maxH, quality) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+
+                let w = img.width;
+                let h = img.height;
+
+                if (w > maxW || h > maxH) {
+                    const ratio = Math.min(maxW / w, maxH / h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+
+                canvas.toBlob((blob) => {
+                    if (blob) resolve(blob);
+                    else reject(new Error('Canvas toBlob failed'));
+                }, 'image/jpeg', quality);
+            };
+
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error('Image load failed'));
+            };
+
+            img.src = url;
+        });
+    },
+
+    /**
+     * Salva foto in IndexedDB
+     */
+    async save(sopralluogoId, roomName, type, blob, thumbnail, observationKey = null) {
+        const id = Events.uuid();
+        const photoCount = (await DB.getPhotosByRoom(roomName)).filter((p) => p.type === type).length;
+        const num = photoCount + 1;
+
+        let filename;
+        if (type === 'planimetria') {
+            filename = `planimetria_${Date.now()}.jpg`;
+        } else if (type === 'panoramica') {
+            filename = `FOTO_PANORAMICA_${num}.jpg`;
+        } else {
+            filename = `Foto_${num}_dettaglio.jpg`;
+        }
+
+        const photoData = {
+            id: id,
+            sopralluogo_id: sopralluogoId,
+            room_name: roomName,
+            type: type,
+            filename: filename,
+            blob: blob,
+            thumbnail: thumbnail,
+            observation_key: observationKey,
+            created_at: Date.now(),
+            synced: false
+        };
+
+        await DB.addPhoto(photoData);
+        return { id, filename };
+    },
+
+    /**
+     * Ottieni URL temporaneo per visualizzazione thumbnail
+     */
+    async getThumbnailUrl(photoId) {
+        const photo = await DB.getPhoto(photoId);
+        if (!photo || !photo.thumbnail) return null;
+        return URL.createObjectURL(photo.thumbnail);
+    },
+
+    /**
+     * Ottieni URL temporaneo per visualizzazione full
+     */
+    async getFullUrl(photoId) {
+        const photo = await DB.getPhoto(photoId);
+        if (!photo || !photo.blob) return null;
+        return URL.createObjectURL(photo.blob);
+    },
+
+    /**
+     * Renderizza griglia foto per un vano
+     */
+    async renderPhotoGrid(sopralluogoId, roomName, type, onAdd) {
+        const photos = (await DB.getPhotosBySopralluogo(sopralluogoId))
+            .filter((p) => p.room_name === roomName && p.type === type);
+
+        let html = '<div class="photo-grid">';
+
+        for (const photo of photos) {
+            const thumbUrl = photo.thumbnail ? URL.createObjectURL(photo.thumbnail) : '';
+            html += `
+                <div class="photo-thumb" data-photo-id="${photo.id}">
+                    <img src="${thumbUrl}" alt="${photo.filename}">
+                </div>
+            `;
+        }
+
+        // Bottone aggiungi
+        html += `<div class="photo-add" id="photo-add-${type}">+</div>`;
+        html += '</div>';
+
+        return html;
+    }
+};
+
+
+// ========== sync.js ==========
+/**
+ * sync.js - Sincronizzazione dati con bot Telegram
+ */
+const Sync = {
+    /**
+     * Controlla se siamo online
+     */
+    isOnline() {
+        return navigator.onLine;
+    },
+
+    /**
+     * Aggiorna indicatore sync nell'header
+     */
+    updateIndicator() {
+        const dot = document.getElementById('sync-indicator');
+        if (!dot) return;
+
+        if (this.isOnline()) {
+            dot.classList.remove('offline', 'syncing');
+            dot.classList.add('online');
+            dot.title = 'Online';
+        } else {
+            dot.classList.remove('online', 'syncing');
+            dot.classList.add('offline');
+            dot.title = 'Offline';
+        }
+    },
+
+    /**
+     * Inizializza listener per online/offline
+     */
+    init() {
+        window.addEventListener('online', () => this.updateIndicator());
+        window.addEventListener('offline', () => this.updateIndicator());
+        this.updateIndicator();
+    },
+
+    /**
+     * Invia dati sopralluogo al bot via sendData
+     * sendData ha un limite di 4096 byte
+     */
+    async sendToBot(sopralluogoId) {
+        const sop = await DB.getSopralluogo(sopralluogoId);
+        if (!sop) {
+            UI.toast('Sopralluogo non trovato');
+            return false;
+        }
+
+        // Prepara payload (senza blob foto)
+        const payload = {
+            action: 'sync_sopralluogo',
+            sopralluogo: {
+                id: sop.id,
+                building_code: sop.building_code,
+                building_address: sop.building_address,
+                floor: sop.floor,
+                stair: sop.stair,
+                unit_type: sop.unit_type,
+                subalterno: sop.subalterno,
+                unit_internal: sop.unit_internal,
+                unit_name: sop.unit_name,
+                owner: sop.owner,
+                attendees: sop.attendees,
+                rooms: sop.rooms,
+                global_notes: sop.global_notes
+            }
+        };
+
+        const json = JSON.stringify(payload);
+
+        // Controlla limite 4096 byte
+        if (json.length > 4096) {
+            // Se troppo grande, invia in chunk
+            return this.sendChunked(sopralluogoId, payload);
+        }
+
+        try {
+            if (window.Telegram && Telegram.WebApp) {
+                Telegram.WebApp.sendData(json);
+                sop.synced = true;
+                await DB.saveSopralluogo(sop);
+                UI.toast('Dati inviati al bot');
+                return true;
+            } else {
+                // Fallback per test in browser
+                console.log('SYNC DATA:', json);
+                UI.toast('Dati pronti (modalità test)');
+                return true;
+            }
+        } catch (e) {
+            console.error('Errore sync:', e);
+            UI.toast('Errore invio dati');
+            return false;
+        }
+    },
+
+    /**
+     * Invia dati in chunk se troppo grandi per sendData
+     */
+    async sendChunked(sopralluogoId, payload) {
+        const sop = await DB.getSopralluogo(sopralluogoId);
+        const rooms = sop.rooms;
+        const roomNames = Object.keys(rooms);
+
+        // Strategia: invia un messaggio per vano
+        for (let i = 0; i < roomNames.length; i++) {
+            const roomName = roomNames[i];
+            const chunk = {
+                action: 'sync_room',
+                sopralluogo_id: sopralluogoId,
+                room_index: i,
+                total_rooms: roomNames.length,
+                building_code: sop.building_code,
+                floor: sop.floor,
+                unit_name: sop.unit_name || `${sop.unit_type} - Sub. ${sop.subalterno} - ${sop.unit_internal}`,
+                room_name: roomName,
+                room_data: rooms[roomName],
+                // Includi metadata solo nel primo chunk
+                ...(i === 0 ? {
+                    owner: sop.owner,
+                    attendees: sop.attendees,
+                    global_notes: sop.global_notes
+                } : {})
+            };
+
+            const json = JSON.stringify(chunk);
+            if (json.length > 4096) {
+                // Anche il singolo vano è troppo grande, tronca osservazioni
+                console.warn(`Vano ${roomName} troppo grande (${json.length} bytes), troncamento necessario`);
+            }
+
+            try {
+                if (window.Telegram && Telegram.WebApp) {
+                    Telegram.WebApp.sendData(json);
+                }
+            } catch (e) {
+                console.error(`Errore invio chunk ${i}:`, e);
+                return false;
+            }
+        }
+
+        sop.synced = true;
+        await DB.saveSopralluogo(sop);
+        UI.toast('Dati inviati al bot');
+        return true;
+    },
+
+    /**
+     * Richiedi generazione report
+     */
+    async requestReport(sopralluogoId) {
+        const sop = await DB.getSopralluogo(sopralluogoId);
+        if (!sop) return false;
+
+        await Events.dispatch('request_report', sopralluogoId, {});
+
+        const payload = {
+            action: 'generate_report',
+            sopralluogo_id: sopralluogoId,
+            building_code: sop.building_code,
+            floor: sop.floor,
+            unit_name: sop.unit_name || `${sop.unit_type} - Sub. ${sop.subalterno} - ${sop.unit_internal}`
+        };
+
+        try {
+            if (window.Telegram && Telegram.WebApp) {
+                Telegram.WebApp.sendData(JSON.stringify(payload));
+                UI.toast('Richiesta report inviata');
+                return true;
+            } else {
+                console.log('REPORT REQUEST:', payload);
+                UI.toast('Richiesta report (modalità test)');
+                return true;
+            }
+        } catch (e) {
+            console.error('Errore richiesta report:', e);
+            UI.toast('Errore richiesta report');
+            return false;
+        }
+    }
+};
+
+
+// ========== components.js ==========
+/**
+ * components.js - Componenti UI riutilizzabili
+ */
+const UI = {
+    /**
+     * Mostra toast notification
+     */
+    toast(message, duration = 2500) {
+        const el = document.getElementById('toast');
+        el.textContent = message;
+        el.classList.remove('hidden');
+        clearTimeout(UI._toastTimer);
+        UI._toastTimer = setTimeout(() => el.classList.add('hidden'), duration);
+    },
+    _toastTimer: null,
+
+    /**
+     * Mostra/nascondi modal
+     */
+    showModal(html) {
+        const overlay = document.getElementById('modal-overlay');
+        const content = document.getElementById('modal-content');
+        content.innerHTML = html;
+        overlay.classList.remove('hidden');
+        overlay.onclick = (e) => {
+            if (e.target === overlay) UI.hideModal();
+        };
+    },
+
+    hideModal() {
+        document.getElementById('modal-overlay').classList.add('hidden');
+    },
+
+    /**
+     * Imposta titolo header
+     */
+    setTitle(title) {
+        document.getElementById('header-title').textContent = title;
+    },
+
+    /**
+     * Mostra/nascondi back button
+     */
+    showBack(show, onClick) {
+        const btn = document.getElementById('btn-back');
+        if (show) {
+            btn.classList.remove('hidden');
+            btn.onclick = onClick || (() => history.back());
+        } else {
+            btn.classList.add('hidden');
+            btn.onclick = null;
+        }
+    },
+
+    /**
+     * Crea una sezione raggruppata (stile Telegram)
+     */
+    section(header, bodyHtml) {
+        return `
+            <div class="section">
+                ${header ? `<div class="section-header">${header}</div>` : ''}
+                <div class="section-body">${bodyHtml}</div>
+            </div>
+        `;
+    },
+
+    /**
+     * Crea una cella cliccabile
+     */
+    cell({ icon, title, subtitle, badge, chevron = true, onClick, dataId }) {
+        const attrs = dataId ? `data-id="${dataId}"` : '';
+        const onClickAttr = onClick ? `onclick="${onClick}"` : '';
+        return `
+            <div class="cell" ${attrs} ${onClickAttr}>
+                ${icon ? `<div class="cell-icon">${icon}</div>` : ''}
+                <div class="cell-body">
+                    <div class="cell-title">${title}</div>
+                    ${subtitle ? `<div class="cell-subtitle">${subtitle}</div>` : ''}
+                </div>
+                ${badge ? `<span class="cell-badge">${badge}</span>` : ''}
+                ${chevron ? '<span class="cell-chevron">&#8250;</span>' : ''}
+            </div>
+        `;
+    },
+
+    /**
+     * Crea griglia di bottoni scelta
+     */
+    buttonGrid(items, options = {}) {
+        const cols = options.cols === 3 ? 'btn-grid-3' : options.cols === 1 ? 'btn-grid-1' : '';
+        const buttons = items.map((item) => {
+            const val = typeof item === 'string' ? item : item.value;
+            const label = typeof item === 'string' ? item : item.label;
+            const cls = item.className || '';
+            return `<button class="btn-choice ${cls}" data-value="${val}">${label}</button>`;
+        }).join('');
+        return `<div class="btn-grid ${cols}">${buttons}</div>`;
+    },
+
+    /**
+     * Crea menu raggruppato con chips (per wizard)
+     */
+    groupedMenu(groups, multiSelect = false) {
+        let html = '';
+        for (const [title, items] of Object.entries(groups)) {
+            const chips = items.map((item) => {
+                const cls = multiSelect ? 'menu-chip check' : 'menu-chip';
+                return `<button class="${cls}" data-value="${item}">${item}</button>`;
+            }).join('');
+            html += `
+                <div class="menu-group">
+                    <div class="menu-group-title">${title}</div>
+                    <div class="menu-group-items">${chips}</div>
+                </div>
+            `;
+        }
+        return html;
+    },
+
+    /**
+     * Crea chips piatti (senza gruppi)
+     */
+    chipList(items, multiSelect = false) {
+        const cls = multiSelect ? 'menu-chip check' : 'menu-chip';
+        const chips = items.map((item) =>
+            `<button class="${cls}" data-value="${item}">${item}</button>`
+        ).join('');
+        return `<div class="menu-group-items" style="padding: 8px 16px;">${chips}</div>`;
+    },
+
+    /**
+     * Stepper indicatore step
+     */
+    stepper(total, current) {
+        let dots = '';
+        for (let i = 0; i < total; i++) {
+            const cls = i < current ? 'done' : i === current ? 'active' : '';
+            dots += `<div class="stepper-dot ${cls}"></div>`;
+        }
+        return `<div class="stepper">${dots}</div>`;
+    },
+
+    /**
+     * Card osservazione con bottoni edit/delete
+     */
+    observationCard(obs, index, options = {}) {
+        const photoText = obs.photo_id ? 'Con foto' : 'Senza foto';
+        const showActions = options.showActions !== false;
+
+        let elemLabel = obs.wall || obs.balcone_sub || obs.element || '';
+        if (obs.has_counterwall) elemLabel += ' (c/p)';
+
+        let actionsHtml = '';
+        if (showActions) {
+            actionsHtml = `<div class="obs-card-actions">
+                <button class="obs-btn-delete" data-obs-index="${index}" title="Elimina">🗑</button>
+            </div>`;
+        }
+
+        return `
+            <div class="obs-card" data-obs-index="${index}">
+                <div class="obs-card-element">${elemLabel}</div>
+                <div class="obs-card-text">${formatObservationText(obs)}</div>
+                <div class="obs-card-footer">
+                    <span class="obs-card-photo">${photoText}</span>
+                    ${actionsHtml}
+                </div>
+            </div>
+        `;
+    },
+
+    /**
+     * Empty state
+     */
+    emptyState(icon, title, text) {
+        return `
+            <div class="empty-state">
+                <div class="empty-state-icon">${icon}</div>
+                <div class="empty-state-title">${title}</div>
+                <div class="empty-state-text">${text}</div>
+            </div>
+        `;
+    },
+
+    /**
+     * Form input con label
+     */
+    formInput({ label, placeholder, id, type = 'text', value = '' }) {
+        return `
+            <div class="form-group">
+                ${label ? `<label class="form-label" for="${id}">${label}</label>` : ''}
+                <input class="form-input" type="${type}" id="${id}" placeholder="${placeholder || ''}" value="${value}">
+            </div>
+        `;
+    },
+
+    /**
+     * Status badge
+     */
+    statusBadge(status) {
+        const labels = {
+            accessible: 'Accessibile',
+            non_accessibile: 'Non Accessibile',
+            non_valutabile: 'Non Valutabile',
+            non_autorizzato: 'Non Autorizzato',
+            completed: 'Completato',
+            in_progress: 'In Corso'
+        };
+        return `<span class="status-badge status-${status}">${labels[status] || status}</span>`;
+    },
+
+    /**
+     * Mostra superfici mancanti per un vano
+     */
+    missingSurfaces(completedSurfaces) {
+        const completed = completedSurfaces || [];
+        const missing = CONFIG.REQUIRED_SURFACES.filter(s => !completed.includes(s));
+        if (missing.length === 0) return '';
+        return `<div class="missing-surfaces">MANCANO: ${missing.join(', ')}</div>`;
+    },
+
+    /**
+     * Conferma azione distruttiva
+     */
+    confirmAction(message, onConfirm) {
+        let html = `<div class="modal-title">${message}</div>
+        <div class="px-16 flex-col gap-8">
+            <button class="btn btn-primary" id="modal-confirm" style="background:var(--destructive)">Conferma</button>
+            <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+        </div>`;
+        UI.showModal(html);
+        document.getElementById('modal-confirm').addEventListener('click', () => {
+            UI.hideModal();
+            onConfirm();
+        });
+        document.getElementById('modal-cancel').addEventListener('click', () => UI.hideModal());
+    }
+};
+
+/**
+ * Formatta il testo di una osservazione (allineato a reports.py format_observation_text)
+ * Logica: Elemento + Posizione + Difetto + Specifiche + Attributi + Prosecuzione
+ */
+function formatObservationText(obs) {
+    if (!obs) return '';
+
+    // Determina label elemento
+    let elemLabel = '';
+    if (obs.infisso_type) {
+        // Elemento/Varco
+        const parts = [obs.infisso_type];
+        if (obs.infisso_which) parts.push(obs.infisso_which);
+        if (obs.infisso_wall || obs.infisso_location) parts.push(obs.infisso_wall || obs.infisso_location);
+        if (obs.infisso_sub_pos) parts.push(obs.infisso_sub_pos);
+        elemLabel = parts.join(' ');
+    } else if (obs.balcone_sub) {
+        elemLabel = `Balcone ${obs.balcone_sub}`;
+    } else {
+        elemLabel = obs.wall || obs.element || '';
+    }
+
+    // Controparete
+    if (obs.has_counterwall) {
+        elemLabel += ' con controparete';
+    }
+
+    // NDR
+    if (obs.phenomenon === 'NDR' || obs.phenomenon === 'Nulla da Rilevare') {
+        return `${elemLabel} NDR (per quanto visibile)`;
+    }
+
+    // INGOMBRA
+    if (obs.phenomenon === 'INGOMBRA') {
+        return `${elemLabel} ingombra`;
+    }
+
+    // NON VISIBILE
+    if (obs.phenomenon === 'NON VISIBILE') {
+        return `${elemLabel} non visibile`;
+    }
+
+    // PARZIALMENTE INGOMBRA (senza difetto)
+    if (obs.phenomenon === 'PARZIALMENTE INGOMBRA') {
+        return `${elemLabel} parzialmente ingombra`;
+    }
+
+    // NESSUN DIFETTO
+    if (obs.phenomenon === 'NESSUN DIFETTO') {
+        return `${elemLabel} nessun difetto rilevato`;
+    }
+
+    // Nessun fenomeno
+    if (!obs.phenomenon) return elemLabel;
+
+    // Standard observation
+    let parts = [];
+    parts.push(elemLabel);
+
+    // Posizione
+    if (obs.position) {
+        parts.push(obs.position);
+    }
+
+    // Fenomeno
+    parts.push(obs.phenomenon);
+
+    // Specifiche (step separato dal bot)
+    if (obs.specifics && obs.specifics.length > 0) {
+        parts.push(obs.specifics.join(' '));
+    }
+
+    // Attributi
+    if (obs.attributes && obs.attributes.length > 0) {
+        parts.push(obs.attributes.join(' '));
+    }
+
+    // Prosecuzione
+    if (obs.prosecutions && obs.prosecutions.length > 0) {
+        parts.push('prosegue su ' + obs.prosecutions.join(', '));
+    }
+
+    let text = parts.join(' ');
+    // Capitalize first letter
+    text = text.charAt(0).toUpperCase() + text.slice(1);
+    return text;
+}
+
+
+// ========== home.js ==========
+/**
+ * home.js - Vista Home: lista sopralluoghi + nuovo
+ */
+const HomeView = {
+    async render(container) {
+        UI.setTitle('Testimoniale');
+
+        const sopralluoghi = await DB.getAllSopralluoghi();
+        const inCorso = sopralluoghi.filter((s) => s.phase < 4);
+        const completati = sopralluoghi.filter((s) => s.phase >= 4);
+
+        let html = '';
+
+        // Bottone nuovo
+        html += `
+            <div class="px-16" style="padding-top: 16px;">
+                <button class="btn btn-primary" id="btn-new-sop">Nuovo Testimoniale</button>
+            </div>
+        `;
+
+        // In corso
+        if (inCorso.length > 0) {
+            let cells = '';
+            for (const sop of inCorso) {
+                const roomCount = Object.keys(sop.rooms || {}).length;
+                const phaseName = sop.phase === 1 ? 'Setup' : sop.phase === 2 ? 'Ricognizione' : 'Analisi';
+                cells += UI.cell({
+                    icon: '🏗️',
+                    title: `${sop.building_code} - ${sop.unit_type || ''}`,
+                    subtitle: `${sop.floor || ''} | ${sop.unit_internal || ''} | ${roomCount} vani | ${phaseName}`,
+                    badge: sop.synced ? null : 'Non sync',
+                    dataId: sop.id
+                });
+            }
+            html += UI.section('IN CORSO', cells);
+        }
+
+        // Completati
+        if (completati.length > 0) {
+            let cells = '';
+            for (const sop of completati) {
+                const roomCount = Object.keys(sop.rooms || {}).length;
+                cells += UI.cell({
+                    icon: '✅',
+                    title: `${sop.building_code} - ${sop.unit_type || ''}`,
+                    subtitle: `${sop.floor || ''} | ${sop.unit_internal || ''} | ${roomCount} vani`,
+                    dataId: sop.id
+                });
+            }
+            html += UI.section('COMPLETATI', cells);
+        }
+
+        // Empty state
+        if (sopralluoghi.length === 0) {
+            html += UI.emptyState(
+                '📋',
+                'Nessun testimoniale',
+                'Tocca "Nuovo Testimoniale" per iniziare un sopralluogo'
+            );
+        }
+
+        container.innerHTML = html;
+
+        // Event: nuovo sopralluogo
+        document.getElementById('btn-new-sop').addEventListener('click', async () => {
+            const id = await Events.createSopralluogo({});
+            App.navigate(`setup/${id}`);
+        });
+
+        // Event: click su sopralluogo in corso
+        container.querySelectorAll('.cell[data-id]').forEach((cell) => {
+            cell.addEventListener('click', () => {
+                const id = cell.dataset.id;
+                DB.getSopralluogo(id).then((sop) => {
+                    if (!sop) return;
+                    if (sop.phase === 1) {
+                        App.navigate(`setup/${id}`);
+                    } else {
+                        App.navigate(`rooms/${id}`);
+                    }
+                });
+            });
+        });
+    }
+};
+
+
+// ========== setup.js ==========
+/**
+ * setup.js - Fase 1: Setup fabbricato e unità
+ * Allineato al bot: flow condizionale per tipo unità, planimetrie multiple
+ * Multi-step: Codice → Indirizzo → Piano → Scala → Tipo Unità → [Subalterno] → Interno/Indirizzo/Identificativo → Planimetria(e)
+ */
+const SetupView = {
+    // Step base (sempre presenti)
+    baseSteps: [
+        { key: 'building_code', label: 'Codice Fabbricato', type: 'text', placeholder: 'Es. 100C, 3B' },
+        { key: 'building_address', label: 'Indirizzo Fabbricato', type: 'text', placeholder: 'Es. Via Roma, 10' },
+        { key: 'floor', label: 'Piano', type: 'choice', options: () => CONFIG.FLOORS },
+        { key: 'stair', label: 'Scala', type: 'choice', options: () => CONFIG.STAIRS },
+        { key: 'unit_type', label: 'Tipo Unità', type: 'choice', options: () => CONFIG.UNIT_TYPES }
+    ],
+
+    currentStep: 0,
+    sopId: null,
+    dynamicSteps: [],
+
+    /**
+     * Costruisce gli step dinamici in base al tipo unità (come il bot)
+     */
+    buildSteps(sop) {
+        const steps = [...this.baseSteps];
+        const unitType = sop.unit_type;
+
+        if (unitType) {
+            // Subalterno per Abitazione, Ufficio
+            if (['Abitazione', 'Ufficio'].includes(unitType)) {
+                steps.push({ key: 'subalterno', label: 'Subalterno', type: 'text', placeholder: 'Es. 500' });
+                steps.push({ key: 'unit_internal', label: 'Interno', type: 'text', placeholder: 'Es. 3, Int A' });
+            }
+            // Negozio, Garage → indirizzo
+            else if (['Negozio', 'Garage'].includes(unitType)) {
+                steps.push({ key: 'subalterno', label: 'Subalterno', type: 'text', placeholder: 'Es. 500' });
+                steps.push({ key: 'unit_internal', label: 'Indirizzo / Civico', type: 'text', placeholder: 'Es. Via Roma 10' });
+            }
+            // Cantina, Soffitta → identificativo
+            else if (['Cantina', 'Soffitta'].includes(unitType)) {
+                steps.push({ key: 'unit_internal', label: 'Identificativo', type: 'text', placeholder: 'Es. C1, S2' });
+            }
+            // Parti Comuni
+            else {
+                steps.push({ key: 'unit_internal', label: 'Identificativo', type: 'text', placeholder: 'Es. Scala A' });
+            }
+        }
+
+        // Planimetria sempre alla fine
+        steps.push({ key: 'planimetria', label: 'Planimetria', type: 'photo' });
+
+        this.dynamicSteps = steps;
+        return steps;
+    },
+
+    async render(container, params) {
+        this.sopId = params[0];
+        if (!this.sopId) { App.navigate('home', true); return; }
+
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (!sop) { App.navigate('home', true); return; }
+
+        const steps = this.buildSteps(sop);
+
+        // Determina lo step corrente basandosi sui dati già compilati
+        this.currentStep = 0;
+        for (let i = 0; i < steps.length - 1; i++) {
+            if (sop[steps[i].key]) {
+                this.currentStep = i + 1;
+            } else {
+                break;
+            }
+        }
+
+        // Se la planimetria è stata caricata, vai all'anagrafica
+        if (sop.planimetria_photos && sop.planimetria_photos.length > 0) {
+            this.currentStep = steps.length;
+        } else if (sop.planimetria_photo_id) {
+            this.currentStep = steps.length;
+        }
+
+        // Se tutti gli step sono completati
+        if (this.currentStep >= steps.length) {
+            App.navigate(`anagrafica/${this.sopId}`, true);
+            return;
+        }
+
+        this.renderStep(container, sop);
+    },
+
+    renderStep(container, sop) {
+        const steps = this.dynamicSteps;
+        const step = steps[this.currentStep];
+        UI.setTitle(step.label);
+
+        let html = '';
+
+        // Stepper
+        html += UI.stepper(steps.length, this.currentStep);
+
+        // Riepilogo precedenti
+        if (this.currentStep > 0) {
+            let summary = '<div class="px-16 mb-8">';
+            for (let i = 0; i < this.currentStep; i++) {
+                const s = steps[i];
+                const val = sop[s.key] || '';
+                if (val && s.type !== 'photo') {
+                    summary += `<span class="text-hint">${s.label}: <strong style="color:var(--text)">${val}</strong> | </span>`;
+                }
+            }
+            summary += '</div>';
+            html += summary;
+        }
+
+        // Step content
+        if (step.type === 'text') {
+            html += UI.formInput({
+                label: step.label,
+                placeholder: step.placeholder,
+                id: 'setup-input',
+                value: sop[step.key] || ''
+            });
+            html += `
+                <div class="px-16 mt-8">
+                    <button class="btn btn-primary" id="setup-next">Avanti</button>
+                </div>
+            `;
+        } else if (step.type === 'choice') {
+            html += `<div class="wizard-header"><div class="wizard-subtitle">Seleziona ${step.label}</div></div>`;
+            const options = step.options();
+            html += UI.buttonGrid(options);
+            html += `
+                <div class="px-16 mt-8">
+                    <input class="form-input" type="text" id="setup-manual" placeholder="Oppure scrivi manualmente...">
+                    <button class="btn btn-secondary mt-8" id="setup-manual-btn" style="display:none">Usa valore inserito</button>
+                </div>
+            `;
+        } else if (step.type === 'photo') {
+            // Mostra planimetrie già caricate
+            const planPhotos = sop.planimetria_photos || [];
+            let planHtml = '';
+            if (planPhotos.length > 0) {
+                planHtml = `<div class="px-16 mb-8"><span class="text-hint">${planPhotos.length} planimetria/e caricata/e</span></div>`;
+            }
+
+            html += `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📐</div>
+                    <div class="empty-state-title">Carica la planimetria</div>
+                    <div class="empty-state-text">Puoi caricare più planimetrie</div>
+                </div>
+                ${planHtml}
+                <div class="px-16 flex-col gap-8">
+                    <button class="btn btn-primary" id="setup-photo">Scatta / Seleziona Foto</button>
+                    ${planPhotos.length > 0 ? '<button class="btn btn-outline" id="setup-add-another">Aggiungi Altra Planimetria</button>' : ''}
+                    <button class="btn btn-secondary" id="setup-skip-photo">${planPhotos.length > 0 ? 'Procedi' : 'Salta'}</button>
+                </div>
+            `;
+        }
+
+        container.innerHTML = html;
+        this.bindEvents(container, step, sop);
+    },
+
+    bindEvents(container, step, sop) {
+        if (step.type === 'text') {
+            const input = document.getElementById('setup-input');
+            const btn = document.getElementById('setup-next');
+
+            setTimeout(() => input.focus(), 100);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') btn.click();
+            });
+
+            btn.addEventListener('click', async () => {
+                const value = input.value.trim();
+                if (!value) {
+                    UI.toast('Inserisci un valore');
+                    return;
+                }
+                await this.saveStep(step.key, value);
+            });
+        } else if (step.type === 'choice') {
+            container.querySelectorAll('.btn-choice').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    await this.saveStep(step.key, btn.dataset.value);
+                });
+            });
+
+            const manualInput = document.getElementById('setup-manual');
+            const manualBtn = document.getElementById('setup-manual-btn');
+            manualInput.addEventListener('input', () => {
+                manualBtn.style.display = manualInput.value.trim() ? 'block' : 'none';
+            });
+            manualBtn.addEventListener('click', async () => {
+                const value = manualInput.value.trim();
+                if (value) await this.saveStep(step.key, value);
+            });
+        } else if (step.type === 'photo') {
+            const handlePhoto = async () => {
+                const result = await Photos.capture();
+                if (result) {
+                    const { id } = await Photos.save(this.sopId, '__planimetria__', 'planimetria', result.blob, result.thumbnail);
+                    await Events.dispatch('upload_planimetria', this.sopId, { photo_id: id });
+                    UI.toast('Planimetria caricata');
+
+                    // Ricarica per mostrare aggiornamento e permettere altra planimetria
+                    const updatedSop = await DB.getSopralluogo(this.sopId);
+                    this.renderStep(document.getElementById('app-content'), updatedSop);
+                }
+            };
+
+            document.getElementById('setup-photo')?.addEventListener('click', handlePhoto);
+            document.getElementById('setup-add-another')?.addEventListener('click', handlePhoto);
+
+            document.getElementById('setup-skip-photo')?.addEventListener('click', () => {
+                App.navigate(`anagrafica/${this.sopId}`);
+            });
+        }
+    },
+
+    async saveStep(key, value) {
+        // Formatta
+        if (key === 'building_code') {
+            value = value.toUpperCase().trim();
+        } else if (key === 'building_address') {
+            value = value.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+        } else if (key === 'unit_internal') {
+            if (!value.toLowerCase().startsWith('int') && !value.toLowerCase().startsWith('via') && !value.match(/^[A-Z]\d/i)) {
+                // Solo per Abitazione/Ufficio aggiungi "Interno"
+                const sop = await DB.getSopralluogo(this.sopId);
+                if (['Abitazione', 'Ufficio'].includes(sop?.unit_type)) {
+                    value = `Interno ${value}`;
+                }
+            }
+        }
+
+        await Events.dispatch('update_setup', this.sopId, { [key]: value });
+
+        const sop = await DB.getSopralluogo(this.sopId);
+
+        // Genera unit_name se abbiamo i dati necessari
+        if (sop.unit_type) {
+            let unitName = '';
+            if (['Abitazione', 'Ufficio'].includes(sop.unit_type) && sop.subalterno && sop.unit_internal) {
+                unitName = `${sop.unit_type} - Sub. ${sop.subalterno} - ${sop.unit_internal}`;
+            } else if (['Negozio', 'Garage'].includes(sop.unit_type) && sop.subalterno && sop.unit_internal) {
+                unitName = `${sop.unit_type} - Sub. ${sop.subalterno} - ${sop.unit_internal}`;
+            } else if (sop.unit_internal) {
+                unitName = `${sop.unit_type} - ${sop.unit_internal}`;
+            }
+            if (unitName && sop.unit_name !== unitName) {
+                await Events.dispatch('update_setup', this.sopId, { unit_name: unitName });
+            }
+        }
+
+        // Se abbiamo appena selezionato unit_type, ricostruisci gli step
+        if (key === 'unit_type') {
+            const updatedSop = await DB.getSopralluogo(this.sopId);
+            this.buildSteps(updatedSop);
+        }
+
+        this.currentStep++;
+
+        const steps = this.dynamicSteps;
+        if (this.currentStep >= steps.length) {
+            App.navigate(`anagrafica/${this.sopId}`);
+        } else {
+            const updatedSop = await DB.getSopralluogo(this.sopId);
+            this.renderStep(document.getElementById('app-content'), updatedSop);
+        }
+    }
+};
+
+
+// ========== anagrafica.js ==========
+/**
+ * anagrafica.js - Fase 1b: Proprietario e presenti al sopralluogo
+ * Allineato al bot: collaboratori multipli, flow Persona/Società
+ */
+const AnagraficaView = {
+    sopId: null,
+
+    async render(container, params) {
+        this.sopId = params[0];
+        if (!this.sopId) { App.navigate('home', true); return; }
+
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (!sop) { App.navigate('home', true); return; }
+
+        UI.setTitle('Anagrafica');
+
+        let html = '';
+
+        // Riepilogo fabbricato
+        html += `
+            <div class="section">
+                <div class="section-header">FABBRICATO</div>
+                <div class="section-body">
+                    <div class="cell" style="cursor:default">
+                        <div class="cell-body">
+                            <div class="cell-title">${sop.building_code} - ${sop.building_address || ''}</div>
+                            <div class="cell-subtitle">${sop.floor || ''} | ${sop.stair || ''} | ${sop.unit_name || sop.unit_type || ''}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Tipo proprietario
+        const ownerType = sop.owner?.type || '';
+        html += `
+            <div class="section">
+                <div class="section-header">PROPRIETARIO</div>
+                <div class="section-body">
+                    <div class="form-group">
+                        <label class="form-label">Tipo</label>
+                        <div class="btn-grid" style="padding:0; margin-top:8px;">
+                            <button class="btn-choice ${ownerType === 'persona' ? 'selected' : ''}" data-owner-type="persona">Persona</button>
+                            <button class="btn-choice ${ownerType === 'societa' ? 'selected' : ''}" data-owner-type="societa">Società</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Campi proprietario (dinamici)
+        html += '<div id="owner-fields"></div>';
+
+        // Presenti - Metro C Tecnico
+        html += `
+            <div class="section">
+                <div class="section-header">PRESENTI AL SOPRALLUOGO</div>
+                <div class="section-body">
+                    ${this.formField('metro_tech', 'Tecnico Metro C (Società)', sop.attendees?.metro_tech)}
+                </div>
+            </div>
+        `;
+
+        // Collaboratori Metro C (multipli)
+        const collaborators = Array.isArray(sop.attendees?.metro_coll) ? sop.attendees.metro_coll : [];
+        html += `
+            <div class="section">
+                <div class="section-header">COLLABORATORI METRO C</div>
+                <div class="section-body" id="collaborators-list">
+        `;
+        for (let i = 0; i < collaborators.length; i++) {
+            html += `<div class="form-group" style="display:flex; gap:8px; align-items:center;">
+                <input class="form-input collaborator-input" type="text" data-coll-index="${i}" value="${collaborators[i]}" placeholder="Nome collaboratore ${i + 1}">
+                <button class="btn-choice coll-remove" data-coll-index="${i}" style="color:var(--destructive); min-width:40px; padding:8px;">×</button>
+            </div>`;
+        }
+        html += `</div>
+            <div class="px-16 py-4">
+                <button class="btn btn-secondary" id="btn-add-coll">+ Aggiungi Collaboratore</button>
+            </div>
+        </div>
+        `;
+
+        // Roma Metropolitane
+        html += `
+            <div class="section">
+                <div class="section-body">
+                    ${this.formField('rm', 'Roma Metropolitane', sop.attendees?.rm)}
+                </div>
+            </div>
+        `;
+
+        // Bottone procedi
+        html += `
+            <div class="px-16 py-12">
+                <button class="btn btn-primary" id="btn-proceed">Procedi ai Vani</button>
+            </div>
+            <div style="height: 32px;"></div>
+        `;
+
+        container.innerHTML = html;
+
+        // Render campi proprietario
+        this.renderOwnerFields(sop);
+
+        // Bind events
+        this.bindEvents(sop);
+    },
+
+    formField(id, label, value) {
+        return `
+            <div class="form-group">
+                <label class="form-label" for="field-${id}">${label}</label>
+                <input class="form-input" type="text" id="field-${id}" value="${value || ''}" placeholder="Inserisci ${label.toLowerCase()}">
+            </div>
+        `;
+    },
+
+    renderOwnerFields(sop) {
+        const container = document.getElementById('owner-fields');
+        const type = sop.owner?.type || '';
+
+        let html = '<div class="section"><div class="section-body">';
+        if (type === 'persona') {
+            html += this.formField('owner_name', 'Nome e Cognome', sop.owner?.name);
+        } else if (type === 'societa') {
+            html += this.formField('company_name', 'Ragione Sociale', sop.owner?.company_name);
+            html += this.formField('company_admin', 'Amministratore', sop.owner?.company_admin);
+        }
+        html += '</div></div>';
+
+        container.innerHTML = type ? html : '';
+    },
+
+    bindEvents(sop) {
+        // Tipo proprietario
+        document.querySelectorAll('[data-owner-type]').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                document.querySelectorAll('[data-owner-type]').forEach((b) => b.classList.remove('selected'));
+                btn.classList.add('selected');
+
+                const ownerType = btn.dataset.ownerType;
+                const owner = { type: ownerType, name: '', company_name: '', company_admin: '' };
+                await Events.dispatch('set_anagrafica', this.sopId, { owner });
+                const updatedSop = await DB.getSopralluogo(this.sopId);
+                this.renderOwnerFields(updatedSop);
+            });
+        });
+
+        // Aggiungi collaboratore
+        document.getElementById('btn-add-coll')?.addEventListener('click', async () => {
+            const currentColl = this._getCollaborators();
+            currentColl.push('');
+            await Events.dispatch('set_anagrafica', this.sopId, {
+                attendees: { metro_coll: currentColl }
+            });
+            const updatedSop = await DB.getSopralluogo(this.sopId);
+            this.render(document.getElementById('app-content'), [this.sopId]);
+        });
+
+        // Rimuovi collaboratore
+        document.querySelectorAll('.coll-remove').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const idx = parseInt(btn.dataset.collIndex);
+                const currentColl = this._getCollaborators();
+                currentColl.splice(idx, 1);
+                await Events.dispatch('set_anagrafica', this.sopId, {
+                    attendees: { metro_coll: currentColl }
+                });
+                const updatedSop = await DB.getSopralluogo(this.sopId);
+                this.render(document.getElementById('app-content'), [this.sopId]);
+            });
+        });
+
+        // Procedi
+        document.getElementById('btn-proceed').addEventListener('click', async () => {
+            // Raccogli tutti i campi
+            const owner = { type: sop.owner?.type || 'persona' };
+            const nameEl = document.getElementById('field-owner_name');
+            const companyEl = document.getElementById('field-company_name');
+            const adminEl = document.getElementById('field-company_admin');
+
+            if (nameEl) owner.name = nameEl.value.trim();
+            if (companyEl) owner.company_name = companyEl.value.trim();
+            if (adminEl) owner.company_admin = adminEl.value.trim();
+
+            const attendees = {
+                metro_tech: document.getElementById('field-metro_tech')?.value.trim() || '',
+                metro_coll: this._getCollaborators(),
+                rm: document.getElementById('field-rm')?.value.trim() || ''
+            };
+
+            await Events.dispatch('set_anagrafica', this.sopId, { owner, attendees });
+            await Events.dispatch('complete_phase', this.sopId, { phase: 2 });
+
+            UI.toast('Anagrafica salvata');
+            App.navigate(`rooms/${this.sopId}`);
+        });
+    },
+
+    /**
+     * Legge i collaboratori dai campi input
+     */
+    _getCollaborators() {
+        const inputs = document.querySelectorAll('.collaborator-input');
+        const colls = [];
+        inputs.forEach((input) => {
+            const val = input.value.trim();
+            if (val) colls.push(val);
+        });
+        return colls;
+    }
+};
+
+
+// ========== rooms.js ==========
+/**
+ * rooms.js - Fase 2: Gestione vani (lista, aggiunta, scheda vano)
+ * Allineato al bot: edit/delete osservazioni, rinomina/elimina vano, elimina foto, tracking superfici
+ */
+const RoomsView = {
+    sopId: null,
+
+    async render(container, params) {
+        this.sopId = params[0];
+        if (!this.sopId) { App.navigate('home', true); return; }
+
+        const roomParam = params[1] ? decodeURIComponent(params[1]) : null;
+
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (!sop) { App.navigate('home', true); return; }
+
+        if (roomParam && sop.rooms[roomParam]) {
+            this.renderRoomCard(container, sop, roomParam);
+        } else {
+            this.renderRoomList(container, sop);
+        }
+    },
+
+    // ========== LISTA VANI ==========
+    async renderRoomList(container, sop) {
+        UI.setTitle(`${sop.building_code} - Vani`);
+        const rooms = sop.rooms || {};
+        const roomNames = Object.keys(rooms);
+
+        let html = '';
+
+        // Header info
+        html += `
+            <div class="section">
+                <div class="section-body">
+                    <div class="cell" style="cursor:default">
+                        <div class="cell-body">
+                            <div class="cell-title">${sop.building_code} - ${sop.unit_name || sop.unit_type}</div>
+                            <div class="cell-subtitle">${sop.floor} | ${sop.stair}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Tabs fase
+        html += `
+            <div class="phase-tabs">
+                <button class="phase-tab ${sop.phase === 2 ? 'active' : ''}" data-phase="2">Ricognizione</button>
+                <button class="phase-tab ${sop.phase === 3 ? 'active' : ''}" data-phase="3">Analisi Difetti</button>
+            </div>
+        `;
+
+        // Lista vani
+        if (roomNames.length > 0) {
+            let cells = '';
+            for (const name of roomNames) {
+                const room = rooms[name];
+                const obsCount = (room.observations || []).length;
+                const photoCount = (room.photos || []).length;
+                const completedCount = (room.completed_surfaces || []).length;
+                const totalSurfaces = CONFIG.REQUIRED_SURFACES.length;
+                const statusIcon = room.status === 'accessible' ? '🟢' :
+                                   room.status === 'non_accessibile' ? '🟠' :
+                                   room.status === 'non_valutabile' ? '🔴' : '🟣';
+
+                const surfaceInfo = completedCount > 0 ? ` | Sup: ${completedCount}/${totalSurfaces}` : '';
+
+                cells += UI.cell({
+                    icon: statusIcon,
+                    title: name,
+                    subtitle: `${room.finishes || 'Soffitto: -'} | Oss: ${obsCount} | Foto: ${photoCount}${surfaceInfo}`,
+                    dataId: name
+                });
+            }
+            html += UI.section('VANI', cells);
+        } else {
+            html += UI.emptyState('🏠', 'Nessun vano', 'Aggiungi il primo vano per iniziare');
+        }
+
+        // Bottoni
+        html += `
+            <div class="px-16 py-12 flex-col gap-8">
+                <button class="btn btn-primary" id="btn-add-room">Aggiungi Vano</button>
+                ${roomNames.length > 0 ? '<button class="btn btn-outline" id="btn-review">Riepilogo / Report</button>' : ''}
+            </div>
+            <div style="height: 32px;"></div>
+        `;
+
+        container.innerHTML = html;
+        this.bindRoomListEvents(container, sop);
+    },
+
+    bindRoomListEvents(container, sop) {
+        container.querySelectorAll('.cell[data-id]').forEach((cell) => {
+            cell.addEventListener('click', () => {
+                App.navigate(`rooms/${this.sopId}/${encodeURIComponent(cell.dataset.id)}`);
+            });
+        });
+
+        container.querySelectorAll('.phase-tab').forEach((tab) => {
+            tab.addEventListener('click', async () => {
+                const phase = parseInt(tab.dataset.phase);
+                await Events.dispatch('complete_phase', this.sopId, { phase });
+                const updatedSop = await DB.getSopralluogo(this.sopId);
+                this.renderRoomList(container, updatedSop);
+            });
+        });
+
+        document.getElementById('btn-add-room')?.addEventListener('click', () => {
+            this.showAddRoomModal(sop);
+        });
+
+        document.getElementById('btn-review')?.addEventListener('click', () => {
+            App.navigate(`review/${this.sopId}`);
+        });
+    },
+
+    showAddRoomModal(sop) {
+        const existingRooms = Object.keys(sop.rooms || {});
+        const nextNum = existingRooms.length + 1;
+
+        let html = `
+            <div class="modal-title">Aggiungi Vano</div>
+            <div class="form-group">
+                <label class="form-label">Numero Vano</label>
+                <input class="form-input" type="text" id="modal-room-num" value="Vano ${nextNum}" placeholder="Es. Vano 1">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nome Vano</label>
+                <input class="form-input" type="text" id="modal-room-name" placeholder="Es. Cucina, Bagno, Ingresso">
+            </div>
+            <div class="section-header" style="padding-top:8px">SCEGLI TIPO</div>
+        `;
+
+        html += UI.buttonGrid(CONFIG.ROOM_TYPES, { cols: 3 });
+
+        html += `
+            <div class="px-16 mt-16">
+                <button class="btn btn-primary" id="modal-confirm-room">Conferma</button>
+            </div>
+        `;
+
+        UI.showModal(html);
+
+        document.querySelectorAll('.modal-content .btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.modal-content .btn-choice').forEach((b) => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                const nameInput = document.getElementById('modal-room-name');
+                const val = btn.dataset.value;
+                nameInput.value = val.charAt(0).toUpperCase() + val.slice(1).toLowerCase();
+            });
+        });
+
+        document.getElementById('modal-confirm-room').addEventListener('click', async () => {
+            const roomNum = document.getElementById('modal-room-num').value.trim();
+            const roomName = document.getElementById('modal-room-name').value.trim();
+
+            if (!roomNum || !roomName) {
+                UI.toast('Compila numero e nome vano');
+                return;
+            }
+
+            const fullName = `${roomNum} - ${roomName}`;
+
+            if (sop.rooms && sop.rooms[fullName]) {
+                UI.toast('Vano già esistente');
+                return;
+            }
+
+            await Events.dispatch('add_vano', this.sopId, {
+                room_number: roomNum,
+                room_name: roomName,
+                full_name: fullName
+            });
+
+            UI.hideModal();
+            UI.toast(`${fullName} aggiunto`);
+            App.navigate(`rooms/${this.sopId}/${encodeURIComponent(fullName)}`);
+        });
+    },
+
+    // ========== SCHEDA VANO ==========
+    async renderRoomCard(container, sop, roomName) {
+        const room = sop.rooms[roomName];
+        UI.setTitle(roomName);
+
+        let html = '';
+
+        // Status e soffitto
+        html += `
+            <div class="section">
+                <div class="section-body">
+                    <div class="cell" style="cursor:default">
+                        <div class="cell-body">
+                            <div class="cell-title">Stato: ${UI.statusBadge(room.status)}</div>
+                            <div class="cell-subtitle">Soffitto: ${room.finishes || 'Non selezionato'}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Superfici mancanti
+        html += UI.missingSurfaces(room.completed_surfaces);
+
+        // Bottoni stato, soffitto, rinomina, elimina
+        html += `
+            <div class="px-16">
+                <div class="btn-grid">
+                    <button class="btn-choice" id="btn-set-status">Stato Vano</button>
+                    <button class="btn-choice" id="btn-set-ceiling">Soffitto</button>
+                </div>
+                <div class="btn-grid mt-8">
+                    <button class="btn-choice" id="btn-rename-room">Rinomina</button>
+                    <button class="btn-choice" id="btn-delete-room" style="color:var(--destructive)">Elimina Vano</button>
+                </div>
+            </div>
+        `;
+
+        // Foto panoramiche
+        html += `
+            <div class="section">
+                <div class="section-header">FOTO PANORAMICHE</div>
+                <div class="section-body" id="room-photos-panoramic">
+                    <div class="px-16 py-12">
+                        <button class="btn btn-secondary" id="btn-add-panoramic">Aggiungi Foto Panoramica</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Osservazioni
+        const observations = room.observations || [];
+        html += `<div class="section"><div class="section-header">OSSERVAZIONI (${observations.length})</div></div>`;
+
+        if (observations.length > 0) {
+            for (let i = 0; i < observations.length; i++) {
+                html += UI.observationCard(observations[i], i, { showActions: true });
+            }
+        } else {
+            html += `<div class="text-center text-hint py-12">Nessuna osservazione</div>`;
+        }
+
+        // Bottoni azioni
+        html += `
+            <div class="px-16 py-12 flex-col gap-8">
+                <button class="btn btn-primary" id="btn-add-obs">Aggiungi Osservazione</button>
+                <button class="btn btn-secondary" id="btn-back-rooms">Torna ai Vani</button>
+            </div>
+            <div style="height: 32px;"></div>
+        `;
+
+        container.innerHTML = html;
+
+        // Carica foto panoramiche
+        this.loadPanoramicPhotos(sop, roomName);
+
+        // Events
+        this.bindRoomCardEvents(sop, roomName);
+    },
+
+    async loadPanoramicPhotos(sop, roomName) {
+        const allPhotos = await DB.getPhotosBySopralluogo(sop.id);
+        const photos = allPhotos
+            ? allPhotos.filter((p) => p.room_name === roomName && p.type === 'panoramica')
+            : [];
+
+        if (photos.length > 0) {
+            let gridHtml = '<div class="photo-grid">';
+            for (const photo of photos) {
+                if (photo.thumbnail) {
+                    const url = URL.createObjectURL(photo.thumbnail);
+                    gridHtml += `<div class="photo-thumb" data-photo-id="${photo.id}">
+                        <img src="${url}" alt="${photo.filename}">
+                        <button class="photo-delete-btn" data-photo-id="${photo.id}" title="Elimina">×</button>
+                    </div>`;
+                }
+            }
+            gridHtml += '</div>';
+            const photosContainer = document.getElementById('room-photos-panoramic');
+            photosContainer.innerHTML = gridHtml + photosContainer.innerHTML;
+
+            // Bind delete foto
+            document.querySelectorAll('.photo-delete-btn').forEach((btn) => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const photoId = btn.dataset.photoId;
+                    UI.confirmAction('Eliminare questa foto panoramica?', async () => {
+                        await Events.dispatch('delete_photo', this.sopId, {
+                            room_name: roomName,
+                            photo_id: photoId
+                        });
+                        await DB.delete('photos', photoId);
+                        UI.toast('Foto eliminata');
+                        const updatedSop = await DB.getSopralluogo(this.sopId);
+                        this.renderRoomCard(document.getElementById('app-content'), updatedSop, roomName);
+                    });
+                });
+            });
+        }
+    },
+
+    bindRoomCardEvents(sop, roomName) {
+        // Stato vano
+        document.getElementById('btn-set-status')?.addEventListener('click', () => {
+            let html = '<div class="modal-title">Stato Vano</div>';
+            html += UI.buttonGrid(
+                CONFIG.ROOM_STATUSES.map((s) => ({
+                    value: s,
+                    label: CONFIG.ROOM_STATUS_LABELS[s]
+                }))
+            );
+            UI.showModal(html);
+
+            document.querySelectorAll('.modal-content .btn-choice').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    await Events.dispatch('set_room_status', this.sopId, {
+                        room_name: roomName,
+                        status: btn.dataset.value
+                    });
+                    UI.hideModal();
+                    UI.toast('Stato aggiornato');
+                    const updatedSop = await DB.getSopralluogo(this.sopId);
+                    this.renderRoomCard(document.getElementById('app-content'), updatedSop, roomName);
+                });
+            });
+        });
+
+        // Soffitto
+        document.getElementById('btn-set-ceiling')?.addEventListener('click', () => {
+            let html = '<div class="modal-title">Tipo Soffitto</div>';
+            html += UI.buttonGrid(CONFIG.CEIL_TYPES);
+            UI.showModal(html);
+
+            document.querySelectorAll('.modal-content .btn-choice').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    await Events.dispatch('set_room_finishes', this.sopId, {
+                        room_name: roomName,
+                        ceiling_type: btn.dataset.value
+                    });
+                    UI.hideModal();
+                    UI.toast('Soffitto impostato');
+                    const updatedSop = await DB.getSopralluogo(this.sopId);
+                    this.renderRoomCard(document.getElementById('app-content'), updatedSop, roomName);
+                });
+            });
+        });
+
+        // Rinomina vano
+        document.getElementById('btn-rename-room')?.addEventListener('click', () => {
+            const room = sop.rooms[roomName];
+            let html = `<div class="modal-title">Rinomina Vano</div>
+            <div class="form-group">
+                <label class="form-label">Numero Vano</label>
+                <input class="form-input" type="text" id="modal-rename-num" value="${room.room_number || ''}" placeholder="Es. Vano 1">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nome Vano</label>
+                <input class="form-input" type="text" id="modal-rename-name" value="${room.room_name || ''}" placeholder="Es. Cucina">
+            </div>
+            <div class="px-16 mt-8">
+                <button class="btn btn-primary" id="modal-rename-confirm">Rinomina</button>
+            </div>`;
+            UI.showModal(html);
+
+            document.getElementById('modal-rename-confirm').addEventListener('click', async () => {
+                const newNum = document.getElementById('modal-rename-num').value.trim();
+                const newName = document.getElementById('modal-rename-name').value.trim();
+                if (!newNum || !newName) { UI.toast('Compila entrambi i campi'); return; }
+                const newFullName = `${newNum} - ${newName}`;
+                if (newFullName === roomName) { UI.hideModal(); return; }
+                if (sop.rooms[newFullName]) { UI.toast('Nome già in uso'); return; }
+
+                await Events.dispatch('rename_vano', this.sopId, {
+                    old_name: roomName,
+                    new_room_number: newNum,
+                    new_room_name: newName,
+                    new_full_name: newFullName
+                });
+                UI.hideModal();
+                UI.toast('Vano rinominato');
+                App.navigate(`rooms/${this.sopId}/${encodeURIComponent(newFullName)}`);
+            });
+        });
+
+        // Elimina vano
+        document.getElementById('btn-delete-room')?.addEventListener('click', () => {
+            UI.confirmAction(`Eliminare "${roomName}" e tutte le sue osservazioni?`, async () => {
+                await Events.dispatch('delete_vano', this.sopId, { room_name: roomName });
+                UI.toast('Vano eliminato');
+                App.navigate(`rooms/${this.sopId}`);
+            });
+        });
+
+        // Foto panoramica
+        document.getElementById('btn-add-panoramic')?.addEventListener('click', async () => {
+            const result = await Photos.capture();
+            if (result) {
+                const { id, filename } = await Photos.save(this.sopId, roomName, 'panoramica', result.blob, result.thumbnail);
+                await Events.dispatch('add_photo', this.sopId, {
+                    room_name: roomName,
+                    photo_id: id,
+                    type: 'panoramica',
+                    filename: filename
+                });
+                UI.toast('Foto panoramica aggiunta');
+                const updatedSop = await DB.getSopralluogo(this.sopId);
+                this.renderRoomCard(document.getElementById('app-content'), updatedSop, roomName);
+            }
+        });
+
+        // Aggiungi osservazione
+        document.getElementById('btn-add-obs')?.addEventListener('click', () => {
+            App.navigate(`wizard/${this.sopId}/${encodeURIComponent(roomName)}`);
+        });
+
+        // Torna ai vani
+        document.getElementById('btn-back-rooms')?.addEventListener('click', () => {
+            App.navigate(`rooms/${this.sopId}`);
+        });
+
+        // Delete osservazione
+        document.querySelectorAll('.obs-btn-delete').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.obsIndex);
+                UI.confirmAction('Eliminare questa osservazione?', async () => {
+                    await Events.dispatch('delete_observation', this.sopId, {
+                        room_name: roomName,
+                        observation_index: idx
+                    });
+                    UI.toast('Osservazione eliminata');
+                    const updatedSop = await DB.getSopralluogo(this.sopId);
+                    this.renderRoomCard(document.getElementById('app-content'), updatedSop, roomName);
+                });
+            });
+        });
+    }
+};
+
+
+// ========== wizard.js ==========
+/**
+ * wizard.js - Wizard Osservazione completo (allineato al bot)
+ *
+ * Flow per elemento:
+ * Pareti:         element → wall → counterwall → pre_check → position → phenomenon → specifics → details → prosecution → notes → photo → confirm
+ * Soffitto/Pav:   element → pre_check → position → phenomenon → specifics → details → prosecution → notes → photo → confirm
+ * Balcone:        element → balcone_sub → [counterwall] → pre_check → position → phenomenon → specifics → details → prosecution → notes → photo → confirm
+ * Elemento/Varco: element → infisso_type → infisso_location → infisso_wall → infisso_which → infisso_sub_pos → pre_check → phenomenon → specifics → details → prosecution → notes → photo → confirm
+ */
+const WizardView = {
+    sopId: null,
+    roomName: null,
+    step: 'element',
+    obs: {},
+
+    async render(container, params) {
+        this.sopId = params[0];
+        this.roomName = params[1] ? decodeURIComponent(params[1]) : null;
+
+        if (!this.sopId || !this.roomName) {
+            App.navigate('home', true);
+            return;
+        }
+
+        // Reset wizard state
+        this.step = 'element';
+        this.obs = {
+            element: null,
+            wall: null,
+            has_counterwall: false,
+            balcone_sub: null,
+            positions_selected: [],
+            position: null,
+            phenomenon: null,
+            specifics: [],
+            attributes: [],
+            prosecutions: [],
+            notes: '',
+            photo_id: null,
+            non_visibile: false,
+            parz_ingombra: false,
+            // Elemento/Varco
+            infisso_type: null,
+            infisso_location: null,
+            infisso_wall: null,
+            infisso_which: null,
+            infisso_sub_pos: null
+        };
+
+        this.renderStep(container);
+    },
+
+    renderStep(container) {
+        if (!container) container = document.getElementById('app-content');
+
+        switch (this.step) {
+            case 'element': this.renderElement(container); break;
+            case 'wall': this.renderWall(container); break;
+            case 'counterwall': this.renderCounterwall(container); break;
+            case 'balcone_sub': this.renderBalconeSub(container); break;
+            case 'pre_check': this.renderPreCheck(container); break;
+            case 'infisso_type': this.renderInfissoType(container); break;
+            case 'infisso_location': this.renderInfissoLocation(container); break;
+            case 'infisso_wall': this.renderInfissoWall(container); break;
+            case 'infisso_which': this.renderInfissoWhich(container); break;
+            case 'infisso_sub_pos': this.renderInfissoSubPos(container); break;
+            case 'position': this.renderPosition(container); break;
+            case 'position_elemento': this.renderPositionElemento(container); break;
+            case 'phenomenon': this.renderPhenomenon(container); break;
+            case 'specifics': this.renderSpecifics(container); break;
+            case 'details': this.renderDetails(container); break;
+            case 'prosecution': this.renderProsecution(container); break;
+            case 'prosecution_target': this.renderProsecutionTarget(container); break;
+            case 'notes': this.renderNotes(container); break;
+            case 'photo': this.renderPhoto(container); break;
+            case 'confirm': this.renderConfirm(container); break;
+        }
+    },
+
+    /**
+     * Torna allo step precedente in base al flow dell'elemento corrente
+     */
+    goBack() {
+        const elem = this.obs.element;
+        const prevMap = {
+            'wall': 'element',
+            'counterwall': 'wall',
+            'balcone_sub': 'element',
+            'pre_check': this._preCheckBackTarget(),
+            'infisso_type': 'element',
+            'infisso_location': 'infisso_type',
+            'infisso_wall': 'infisso_location',
+            'infisso_which': 'infisso_wall',
+            'infisso_sub_pos': 'infisso_which',
+            'position': 'pre_check',
+            'position_elemento': 'position',
+            'phenomenon': elem === 'Elemento/Varco' ? 'pre_check' : 'position',
+            'specifics': 'phenomenon',
+            'details': 'specifics',
+            'prosecution': 'details',
+            'prosecution_target': 'prosecution',
+            'notes': 'prosecution',
+            'photo': 'notes',
+            'confirm': 'photo'
+        };
+
+        const prev = prevMap[this.step];
+        if (prev) {
+            this.step = prev;
+            this.renderStep();
+        } else {
+            App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`);
+        }
+    },
+
+    _preCheckBackTarget() {
+        const elem = this.obs.element;
+        if (elem === 'Pareti') return 'counterwall';
+        if (elem === 'Balcone') {
+            return this.obs.balcone_sub && this.obs.balcone_sub.startsWith('Parete') ? 'counterwall' : 'balcone_sub';
+        }
+        if (elem === 'Elemento/Varco') return 'infisso_sub_pos';
+        return 'element';
+    },
+
+    _wizardHeader(title, subtitle) {
+        return `<div class="wizard-header">
+            <div class="wizard-title">${title}</div>
+            <div class="wizard-subtitle">${subtitle}</div>
+        </div>`;
+    },
+
+    _backButton() {
+        return `<div class="px-16 mt-8"><button class="btn btn-secondary" id="btn-wiz-back">Indietro</button></div>`;
+    },
+
+    _bindBack() {
+        document.getElementById('btn-wiz-back')?.addEventListener('click', () => this.goBack());
+    },
+
+    // ========== STEP: ELEMENTO ==========
+    renderElement(container) {
+        UI.setTitle('Elemento');
+        let html = this._wizardHeader(this.roomName, "Seleziona l'elemento da ispezionare");
+        html += UI.buttonGrid(CONFIG.ELEMENTS);
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                this.obs.element = btn.dataset.value;
+
+                if (this.obs.element === 'Pareti') {
+                    this.step = 'wall';
+                } else if (this.obs.element === 'Balcone') {
+                    this.step = 'balcone_sub';
+                } else if (this.obs.element === 'Elemento/Varco') {
+                    this.step = 'infisso_type';
+                } else {
+                    this.step = 'pre_check';
+                }
+                this.renderStep();
+            });
+        });
+    },
+
+    // ========== STEP: PARETE A/B/C/D ==========
+    renderWall(container) {
+        UI.setTitle('Parete');
+        let html = this._wizardHeader('Pareti', 'Seleziona la parete');
+        html += UI.buttonGrid(CONFIG.WALL_LABELS);
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                this.obs.wall = btn.dataset.value;
+                this.step = 'counterwall';
+                this.renderStep();
+            });
+        });
+        this._bindBack();
+    },
+
+    // ========== STEP: CONTROPARETE ==========
+    renderCounterwall(container) {
+        const label = this.obs.wall || this.obs.balcone_sub || 'Parete';
+        UI.setTitle('Controparete');
+        let html = this._wizardHeader(label, 'Ha una controparete?');
+        html += `<div class="btn-grid px-16">
+            <button class="btn-choice" data-value="true">Si</button>
+            <button class="btn-choice" data-value="false">No</button>
+        </div>`;
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                this.obs.has_counterwall = btn.dataset.value === 'true';
+                this.step = 'pre_check';
+                this.renderStep();
+            });
+        });
+        this._bindBack();
+    },
+
+    // ========== STEP: BALCONE SUB-ELEMENTO ==========
+    renderBalconeSub(container) {
+        UI.setTitle('Elemento Balcone');
+        let html = this._wizardHeader('Balcone', 'Seleziona elemento del balcone');
+        html += UI.buttonGrid(CONFIG.BALCONE_SUB_ELEMENTS, { cols: 2 });
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                this.obs.balcone_sub = btn.dataset.value;
+                // Se è una parete, chiedi controparete
+                if (this.obs.balcone_sub.startsWith('Parete')) {
+                    this.step = 'counterwall';
+                } else {
+                    this.step = 'pre_check';
+                }
+                this.renderStep();
+            });
+        });
+        this._bindBack();
+    },
+
+    // ========== STEP: PRE-CHECK (5 opzioni come il bot) ==========
+    renderPreCheck(container) {
+        const label = this._getCurrentLabel();
+        UI.setTitle('Pre-Check');
+        let html = this._wizardHeader(label, 'Controllo preliminare');
+
+        html += '<div class="px-16 flex-col gap-8">';
+        for (const opt of CONFIG.PRE_CHECK) {
+            html += `<button class="btn btn-outline" data-value="${opt.value}" style="text-align:left; justify-content:flex-start;">
+                <span style="margin-right:8px">${opt.icon}</span> ${opt.label}
+            </button>`;
+        }
+        html += '</div>';
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('[data-value]').forEach((btn) => {
+            if (btn.id === 'btn-wiz-back') return;
+            btn.addEventListener('click', async () => {
+                const value = btn.dataset.value;
+
+                if (value === 'NDR') {
+                    await Events.dispatch('set_room_ndr', this.sopId, {
+                        room_name: this.roomName,
+                        element: this.obs.element,
+                        wall: this.obs.wall,
+                        balcone_sub: this.obs.balcone_sub,
+                        has_counterwall: this.obs.has_counterwall
+                    });
+                    UI.toast('NDR registrato');
+                    App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`);
+                } else if (value === 'NON_VISIBILE') {
+                    this.obs.non_visibile = true;
+                    await Events.dispatch('set_room_non_visibile', this.sopId, {
+                        room_name: this.roomName,
+                        element: this.obs.element,
+                        wall: this.obs.wall,
+                        balcone_sub: this.obs.balcone_sub,
+                        has_counterwall: this.obs.has_counterwall
+                    });
+                    UI.toast('Non Visibile registrato');
+                    App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`);
+                } else if (value === 'INGOMBRA') {
+                    await Events.dispatch('set_room_ingombra', this.sopId, {
+                        room_name: this.roomName,
+                        element: this.obs.element,
+                        wall: this.obs.wall,
+                        balcone_sub: this.obs.balcone_sub,
+                        has_counterwall: this.obs.has_counterwall
+                    });
+                    UI.toast('Ingombra registrato');
+                    App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`);
+                } else if (value === 'PARZIALE') {
+                    // Parzialmente ingombra: registra nota ma prosegue con posizione/fenomeno
+                    this.obs.parz_ingombra = true;
+                    this.obs.notes = 'Parzialmente Ingombra';
+                    if (this.obs.element === 'Elemento/Varco') {
+                        this.step = 'phenomenon';
+                    } else {
+                        this.step = 'position';
+                    }
+                    this.renderStep();
+                } else {
+                    // PROCEDI
+                    if (this.obs.element === 'Elemento/Varco') {
+                        this.step = 'phenomenon';
+                    } else {
+                        this.step = 'position';
+                    }
+                    this.renderStep();
+                }
+            });
+        });
+        this._bindBack();
+    },
+
+    // ========== INFISSO STEPS ==========
+    renderInfissoType(container) {
+        UI.setTitle('Tipo Elemento/Varco');
+        let html = this._wizardHeader('Elemento/Varco', 'Seleziona il tipo');
+        html += UI.buttonGrid(CONFIG.VARCO_SUB_ELEMENTS, { cols: 2 });
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                this.obs.infisso_type = btn.dataset.value;
+                this.step = 'infisso_location';
+                this.renderStep();
+            });
+        });
+        this._bindBack();
+    },
+
+    renderInfissoLocation(container) {
+        UI.setTitle('Posizione Elemento');
+        let html = this._wizardHeader(this.obs.infisso_type, 'Dove si trova?');
+        html += UI.buttonGrid(CONFIG.VARCO_LOCATIONS, { cols: 2 });
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                this.obs.infisso_location = btn.dataset.value;
+                // Se è su una parete, chiedi quale
+                if (this.obs.infisso_location.startsWith('Parete')) {
+                    this.obs.infisso_wall = this.obs.infisso_location;
+                    this.step = 'infisso_which';
+                } else {
+                    this.obs.infisso_wall = null;
+                    this.step = 'infisso_which';
+                }
+                this.renderStep();
+            });
+        });
+        this._bindBack();
+    },
+
+    renderInfissoWall(container) {
+        UI.setTitle('Parete Infisso');
+        let html = this._wizardHeader(this.obs.infisso_type, 'Su quale parete?');
+        html += UI.buttonGrid(CONFIG.WALL_LABELS);
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                this.obs.infisso_wall = btn.dataset.value;
+                this.step = 'infisso_which';
+                this.renderStep();
+            });
+        });
+        this._bindBack();
+    },
+
+    renderInfissoWhich(container) {
+        UI.setTitle('Quale');
+        const locLabel = this.obs.infisso_wall || this.obs.infisso_location || '';
+        let html = this._wizardHeader(`${this.obs.infisso_type} - ${locLabel}`, 'Identifica quale (es. 1° da SX)');
+        html += `<div class="form-group px-16">
+            <input class="form-input" type="text" id="infisso-which-input" placeholder="Es. 1 da SX, 2 da DX, Centrale, unico">
+        </div>
+        <div class="px-16"><button class="btn btn-primary" id="btn-infisso-which-ok">Avanti</button></div>`;
+        html += this._backButton();
+        container.innerHTML = html;
+
+        const input = document.getElementById('infisso-which-input');
+        setTimeout(() => input.focus(), 100);
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('btn-infisso-which-ok').click(); });
+
+        document.getElementById('btn-infisso-which-ok').addEventListener('click', () => {
+            const val = input.value.trim();
+            if (!val) { UI.toast('Inserisci un valore'); return; }
+            this.obs.infisso_which = val;
+            this.step = 'infisso_sub_pos';
+            this.renderStep();
+        });
+        this._bindBack();
+    },
+
+    renderInfissoSubPos(container) {
+        UI.setTitle('Dettaglio Infisso');
+        let html = this._wizardHeader(`${this.obs.infisso_type} ${this.obs.infisso_which}`, 'Parte specifica');
+        html += UI.buttonGrid(CONFIG.VARCO_DEFECT_POSITIONS, { cols: 3 });
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                this.obs.infisso_sub_pos = btn.dataset.value;
+                this.step = 'pre_check';
+                this.renderStep();
+            });
+        });
+        this._bindBack();
+    },
+
+    // ========== STEP: POSIZIONE (multi-select come il bot) ==========
+    renderPosition(container) {
+        const label = this._getCurrentLabel();
+        UI.setTitle('Posizione');
+
+        const positions = CONFIG.getPositions(this.obs.element);
+        const selected = this.obs.positions_selected || [];
+
+        let html = this._wizardHeader(label, 'Seleziona posizione (multipla, poi Procedi)');
+
+        if (selected.length > 0) {
+            html += `<div class="px-16 mb-8"><span class="text-hint">Selezionati: <strong style="color:var(--text)">${selected.join(', ')}</strong></span></div>`;
+        }
+
+        // Chip list con toggle
+        html += '<div class="chip-list px-16">';
+        for (const p of positions) {
+            const isSel = selected.includes(p);
+            html += `<button class="menu-chip check ${isSel ? 'selected' : ''}" data-value="${p}">${isSel ? '✅ ' : ''}${p}</button>`;
+        }
+        html += '</div>';
+
+        html += `<div class="px-16 py-12 flex-col gap-8">
+            <button class="btn btn-primary" id="btn-pos-proceed">Procedi</button>
+            <button class="btn btn-outline" id="btn-pos-manual">Scrivi a mano</button>
+        </div>`;
+        html += this._backButton();
+        container.innerHTML = html;
+
+        // Toggle chips
+        container.querySelectorAll('.menu-chip.check').forEach((chip) => {
+            chip.addEventListener('click', () => {
+                const val = chip.dataset.value;
+                const idx = this.obs.positions_selected.indexOf(val);
+                if (idx >= 0) {
+                    this.obs.positions_selected.splice(idx, 1);
+                } else {
+                    this.obs.positions_selected.push(val);
+                }
+                // Re-render per aggiornare stato
+                this.renderStep();
+            });
+        });
+
+        // Procedi
+        document.getElementById('btn-pos-proceed').addEventListener('click', () => {
+            if (this.obs.positions_selected.length === 0) {
+                UI.toast('Seleziona almeno una posizione');
+                return;
+            }
+            this.obs.position = this.obs.positions_selected.join(', ');
+            // Controlla se "presso elemento" è selezionato → chiedi testo libero
+            if (this.obs.positions_selected.includes('presso elemento')) {
+                this.step = 'position_elemento';
+            } else {
+                this.step = 'phenomenon';
+            }
+            this.renderStep();
+        });
+
+        // Manuale
+        document.getElementById('btn-pos-manual').addEventListener('click', () => {
+            this.step = 'position_elemento';
+            this.renderStep();
+        });
+
+        this._bindBack();
+    },
+
+    // ========== STEP: POSIZIONE ELEMENTO (testo libero) ==========
+    renderPositionElemento(container) {
+        UI.setTitle('Specifica Elemento');
+        let html = this._wizardHeader('Presso Elemento', 'Specifica l\'elemento (es. porta, finestra 1 da SX, pilastro)');
+        html += `<div class="form-group px-16">
+            <input class="form-input" type="text" id="pos-elem-input" placeholder="Es. porta, finestra 1 da SX, pilastro">
+        </div>
+        <div class="px-16"><button class="btn btn-primary" id="btn-pos-elem-ok">Avanti</button></div>`;
+        html += this._backButton();
+        container.innerHTML = html;
+
+        const input = document.getElementById('pos-elem-input');
+        setTimeout(() => input.focus(), 100);
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('btn-pos-elem-ok').click(); });
+
+        document.getElementById('btn-pos-elem-ok').addEventListener('click', () => {
+            const val = input.value.trim();
+            if (val) {
+                // Sostituisci o aggiungi "presso elemento" con la specifica
+                const filtered = this.obs.positions_selected.filter(p => p !== 'presso elemento');
+                filtered.push(`presso ${val}`);
+                this.obs.positions_selected = filtered;
+                this.obs.position = filtered.join(', ');
+            } else if (this.obs.positions_selected.length === 0) {
+                // Input manuale completo
+                this.obs.position = val;
+            }
+            this.step = 'phenomenon';
+            this.renderStep();
+        });
+        this._bindBack();
+    },
+
+    // ========== STEP: FENOMENO (singola selezione) ==========
+    renderPhenomenon(container) {
+        const label = this._getCurrentLabel();
+        UI.setTitle('Fenomeno');
+
+        const phenomena = CONFIG.getPhenomena(this.obs.element);
+        const posStr = this.obs.position || '?';
+
+        let html = this._wizardHeader(label, `Posizione: ${posStr}`);
+        html += `<div class="px-16 mb-8"><span class="text-hint">Seleziona il difetto</span></div>`;
+        html += UI.chipList(phenomena);
+
+        // NDR disponibile se parz. ingombra o non visibile
+        if (this.obs.parz_ingombra || this.obs.non_visibile) {
+            html += `<div class="px-16 mt-8"><button class="menu-chip" data-value="NDR" style="background:var(--btn);color:var(--btn-text)">🟢 NDR (Nulla da Rilevare)</button></div>`;
+        }
+        html += `<div class="px-16 mt-8"><button class="btn btn-outline" id="btn-phen-skip">Procedi (salta difetto)</button></div>`;
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.menu-chip').forEach((chip) => {
+            chip.addEventListener('click', () => {
+                this.obs.phenomenon = chip.dataset.value;
+                if (this.obs.phenomenon === 'NDR') {
+                    // NDR: vai a note
+                    this.step = 'notes';
+                } else {
+                    this.step = 'specifics';
+                }
+                this.renderStep();
+            });
+        });
+
+        document.getElementById('btn-phen-skip')?.addEventListener('click', () => {
+            this.obs.phenomenon = '';
+            this.step = 'notes';
+            this.renderStep();
+        });
+
+        this._bindBack();
+    },
+
+    // ========== STEP: SPECIFICHE DIFETTO (multi-select, nuovo step come il bot) ==========
+    renderSpecifics(container) {
+        UI.setTitle('Specifiche');
+        const selected = this.obs.specifics || [];
+
+        let html = this._wizardHeader(this.obs.phenomenon || '?', 'Seleziona specifiche (multipla, poi Procedi)');
+
+        if (selected.length > 0) {
+            html += `<div class="px-16 mb-8"><span class="text-hint">Selezionati: <strong style="color:var(--text)">${selected.join(', ')}</strong></span></div>`;
+        }
+
+        html += '<div class="chip-list px-16">';
+        for (const s of CONFIG.DEFECT_SPECIFICS) {
+            const isSel = selected.includes(s);
+            html += `<button class="menu-chip check ${isSel ? 'selected' : ''}" data-value="${s}">${isSel ? '✅ ' : ''}${s}</button>`;
+        }
+        html += '</div>';
+
+        html += `<div class="px-16 py-12 flex-col gap-8">
+            <button class="btn btn-primary" id="btn-spec-proceed">Procedi</button>
+            <button class="btn btn-secondary" id="btn-spec-skip">Salta (nessuna specifica)</button>
+        </div>`;
+        html += this._backButton();
+        container.innerHTML = html;
+
+        // Toggle chips
+        container.querySelectorAll('.menu-chip.check').forEach((chip) => {
+            chip.addEventListener('click', () => {
+                const val = chip.dataset.value;
+                const idx = this.obs.specifics.indexOf(val);
+                if (idx >= 0) {
+                    this.obs.specifics.splice(idx, 1);
+                } else {
+                    this.obs.specifics.push(val);
+                }
+                this.renderStep();
+            });
+        });
+
+        document.getElementById('btn-spec-proceed').addEventListener('click', () => {
+            this.step = 'details';
+            this.renderStep();
+        });
+
+        document.getElementById('btn-spec-skip').addEventListener('click', () => {
+            this.obs.specifics = [];
+            this.step = 'details';
+            this.renderStep();
+        });
+
+        this._bindBack();
+    },
+
+    // ========== STEP: ATTRIBUTI (multi-select) ==========
+    renderDetails(container) {
+        UI.setTitle('Attributi');
+        const selected = this.obs.attributes || [];
+
+        let html = this._wizardHeader(this.obs.phenomenon || '?', 'Seleziona attributi (multipla, poi Procedi)');
+
+        if (selected.length > 0) {
+            html += `<div class="px-16 mb-8"><span class="text-hint">Selezionati: <strong style="color:var(--text)">${selected.join(', ')}</strong></span></div>`;
+        }
+
+        html += '<div class="chip-list px-16">';
+        for (const a of CONFIG.ATTRIBUTES) {
+            const isSel = selected.includes(a);
+            html += `<button class="menu-chip check ${isSel ? 'selected' : ''}" data-value="${a}">${isSel ? '✅ ' : ''}${a}</button>`;
+        }
+        html += '</div>';
+
+        html += `<div class="px-16 py-12 flex-col gap-8">
+            <button class="btn btn-primary" id="btn-det-proceed">Procedi</button>
+            <button class="btn btn-secondary" id="btn-det-skip">Salta (nessun attributo)</button>
+        </div>`;
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.menu-chip.check').forEach((chip) => {
+            chip.addEventListener('click', () => {
+                const val = chip.dataset.value;
+                const idx = this.obs.attributes.indexOf(val);
+                if (idx >= 0) {
+                    this.obs.attributes.splice(idx, 1);
+                } else {
+                    this.obs.attributes.push(val);
+                }
+                this.renderStep();
+            });
+        });
+
+        document.getElementById('btn-det-proceed').addEventListener('click', () => {
+            this.step = 'prosecution';
+            this.renderStep();
+        });
+
+        document.getElementById('btn-det-skip').addEventListener('click', () => {
+            this.obs.attributes = [];
+            this.step = 'prosecution';
+            this.renderStep();
+        });
+
+        this._bindBack();
+    },
+
+    // ========== STEP: PROSECUZIONE ==========
+    renderProsecution(container) {
+        UI.setTitle('Prosecuzione');
+        let html = this._wizardHeader(this.obs.phenomenon || '?', 'Il difetto prosegue su altra superficie?');
+
+        if (this.obs.prosecutions.length > 0) {
+            html += `<div class="px-16 mb-8"><span class="text-hint">Prosegue su: <strong style="color:var(--text)">${this.obs.prosecutions.join(', ')}</strong></span></div>`;
+        }
+
+        html += `<div class="btn-grid px-16">
+            <button class="btn-choice" data-value="yes">Si, prosegue</button>
+            <button class="btn-choice" data-value="no">No</button>
+        </div>`;
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                if (btn.dataset.value === 'yes') {
+                    this.step = 'prosecution_target';
+                } else {
+                    this.step = 'notes';
+                }
+                this.renderStep();
+            });
+        });
+        this._bindBack();
+    },
+
+    // ========== STEP: TARGET PROSECUZIONE ==========
+    renderProsecutionTarget(container) {
+        UI.setTitle('Dove Prosegue');
+        let html = this._wizardHeader('Prosecuzione', 'Seleziona dove prosegue il difetto');
+
+        if (this.obs.prosecutions.length > 0) {
+            html += `<div class="px-16 mb-8"><span class="text-hint">Già aggiunti: <strong style="color:var(--text)">${this.obs.prosecutions.join(', ')}</strong></span></div>`;
+        }
+
+        html += UI.buttonGrid(CONFIG.PROSECUTION_TARGETS, { cols: 2 });
+        html += `<div class="px-16 mt-8"><button class="btn btn-primary" id="btn-pros-done">Fine Prosecuzione</button></div>`;
+        html += this._backButton();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.value;
+                if (!this.obs.prosecutions.includes(target)) {
+                    this.obs.prosecutions.push(target);
+                }
+                // Re-render per mostrare aggiornamento
+                this.renderStep();
+            });
+        });
+
+        document.getElementById('btn-pros-done').addEventListener('click', () => {
+            this.step = 'notes';
+            this.renderStep();
+        });
+        this._bindBack();
+    },
+
+    // ========== STEP: NOTE ==========
+    renderNotes(container) {
+        UI.setTitle('Note');
+        let html = this._wizardHeader('Note aggiuntive', 'Opzionale - aggiungi note libere');
+        html += `<div class="form-group px-16">
+            <textarea class="form-input" id="wizard-notes" placeholder="Note aggiuntive (opzionale)..." rows="3">${this.obs.notes || ''}</textarea>
+        </div>
+        <div class="px-16 py-12">
+            <button class="btn btn-primary" id="btn-next-notes">Avanti</button>
+        </div>`;
+        html += this._backButton();
+        container.innerHTML = html;
+
+        document.getElementById('btn-next-notes').addEventListener('click', () => {
+            this.obs.notes = document.getElementById('wizard-notes').value.trim();
+            this.step = 'photo';
+            this.renderStep();
+        });
+        this._bindBack();
+    },
+
+    // ========== STEP: FOTO DETTAGLIO ==========
+    renderPhoto(container) {
+        UI.setTitle('Foto Dettaglio');
+        let html = this._wizardHeader('Foto del difetto', 'Scatta una foto di dettaglio');
+        html += `<div class="empty-state" style="padding: 24px;"><div class="empty-state-icon">📸</div></div>
+        <div class="px-16 py-12 flex-col gap-8">
+            <button class="btn btn-primary" id="btn-take-photo">Scatta / Seleziona Foto</button>
+            <button class="btn btn-secondary" id="btn-skip-photo">Salta (senza foto)</button>
+        </div>`;
+        html += this._backButton();
+        container.innerHTML = html;
+
+        document.getElementById('btn-take-photo').addEventListener('click', async () => {
+            const result = await Photos.capture();
+            if (result) {
+                const { id, filename } = await Photos.save(
+                    this.sopId, this.roomName, 'dettaglio',
+                    result.blob, result.thumbnail
+                );
+                this.obs.photo_id = id;
+
+                await Events.dispatch('add_photo', this.sopId, {
+                    room_name: this.roomName,
+                    photo_id: id,
+                    type: 'dettaglio',
+                    filename: filename
+                });
+
+                UI.toast('Foto salvata');
+                this.step = 'confirm';
+                this.renderStep();
+            }
+        });
+
+        document.getElementById('btn-skip-photo').addEventListener('click', () => {
+            this.obs.photo_id = null;
+            this.step = 'confirm';
+            this.renderStep();
+        });
+        this._bindBack();
+    },
+
+    // ========== STEP: CONFERMA ==========
+    async renderConfirm(container) {
+        UI.setTitle('Conferma');
+
+        const previewText = formatObservationText(this.obs);
+
+        let html = this._wizardHeader('Riepilogo Osservazione', this.roomName);
+
+        // Preview testo generato
+        html += `<div class="preview-box">${previewText || 'Osservazione vuota'}</div>`;
+
+        // Dettagli
+        html += '<div class="section"><div class="section-body">';
+        html += this._confirmRow('Elemento', this.obs.wall || this.obs.balcone_sub || this.obs.element);
+
+        if (this.obs.has_counterwall) {
+            html += this._confirmRow('Controparete', 'Si');
+        }
+        if (this.obs.infisso_type) {
+            html += this._confirmRow('Tipo Varco', `${this.obs.infisso_type} ${this.obs.infisso_which || ''}`);
+            html += this._confirmRow('Posizione Varco', `${this.obs.infisso_location || ''} ${this.obs.infisso_sub_pos || ''}`);
+        }
+        if (this.obs.position) {
+            html += this._confirmRow('Posizione', this.obs.position);
+        }
+        if (this.obs.phenomenon) {
+            html += this._confirmRow('Fenomeno', this.obs.phenomenon);
+        }
+        if (this.obs.specifics.length > 0) {
+            html += this._confirmRow('Specifiche', this.obs.specifics.join(', '));
+        }
+        if (this.obs.attributes.length > 0) {
+            html += this._confirmRow('Attributi', this.obs.attributes.join(', '));
+        }
+        if (this.obs.prosecutions.length > 0) {
+            html += this._confirmRow('Prosegue su', this.obs.prosecutions.join(', '));
+        }
+        if (this.obs.notes) {
+            html += this._confirmRow('Note', this.obs.notes);
+        }
+        html += this._confirmRow('Foto', this.obs.photo_id ? 'Si' : 'No');
+        html += '</div></div>';
+
+        // Foto thumbnail
+        if (this.obs.photo_id) {
+            const thumbUrl = await Photos.getThumbnailUrl(this.obs.photo_id);
+            if (thumbUrl) {
+                html += `<div class="px-16"><img src="${thumbUrl}" style="width:120px; border-radius:8px;" alt="Foto dettaglio"></div>`;
+            }
+        }
+
+        // Bottoni
+        html += `<div class="px-16 py-12 flex-col gap-8">
+            <button class="btn btn-primary" id="btn-save-obs">Salva Osservazione</button>
+            <button class="btn btn-outline" id="btn-save-and-new">Salva e Nuova Osservazione</button>
+            <button class="btn btn-secondary" id="btn-cancel-obs">Annulla</button>
+        </div><div style="height: 32px;"></div>`;
+
+        container.innerHTML = html;
+
+        document.getElementById('btn-save-obs').addEventListener('click', async () => {
+            await this.saveObservation();
+            App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`);
+        });
+
+        document.getElementById('btn-save-and-new').addEventListener('click', async () => {
+            await this.saveObservation();
+            this.step = 'element';
+            this.obs = {
+                element: null, wall: null, has_counterwall: false, balcone_sub: null,
+                positions_selected: [], position: null, phenomenon: null,
+                specifics: [], attributes: [], prosecutions: [],
+                notes: '', photo_id: null, non_visibile: false, parz_ingombra: false,
+                infisso_type: null, infisso_location: null, infisso_wall: null,
+                infisso_which: null, infisso_sub_pos: null
+            };
+            this.renderStep();
+        });
+
+        document.getElementById('btn-cancel-obs').addEventListener('click', () => {
+            App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`);
+        });
+    },
+
+    _confirmRow(label, value) {
+        return `<div class="cell" style="cursor:default"><div class="cell-body">
+            <div class="cell-subtitle">${label}</div>
+            <div class="cell-title">${value}</div>
+        </div></div>`;
+    },
+
+    async saveObservation() {
+        await Events.dispatch('add_observation', this.sopId, {
+            room_name: this.roomName,
+            element: this.obs.element,
+            wall: this.obs.wall,
+            has_counterwall: this.obs.has_counterwall,
+            balcone_sub: this.obs.balcone_sub,
+            position: this.obs.position,
+            positions_selected: this.obs.positions_selected,
+            phenomenon: this.obs.phenomenon,
+            specifics: this.obs.specifics,
+            attributes: this.obs.attributes,
+            prosecutions: this.obs.prosecutions,
+            notes: this.obs.notes,
+            photo_id: this.obs.photo_id,
+            non_visibile: this.obs.non_visibile,
+            parz_ingombra: this.obs.parz_ingombra,
+            infisso_type: this.obs.infisso_type,
+            infisso_location: this.obs.infisso_location,
+            infisso_wall: this.obs.infisso_wall,
+            infisso_which: this.obs.infisso_which,
+            infisso_sub_pos: this.obs.infisso_sub_pos
+        });
+        UI.toast('Osservazione salvata');
+    },
+
+    /**
+     * Helper: label corrente basato sull'elemento/parete/balcone
+     */
+    _getCurrentLabel() {
+        if (this.obs.wall) {
+            let label = this.obs.wall;
+            if (this.obs.has_counterwall) label += ' con controparete';
+            return label;
+        }
+        if (this.obs.balcone_sub) return `Balcone - ${this.obs.balcone_sub}`;
+        if (this.obs.infisso_type) {
+            return `${this.obs.infisso_type} ${this.obs.infisso_which || ''} ${this.obs.infisso_sub_pos || ''}`.trim();
+        }
+        return this.obs.element || '?';
+    }
+};
+
+
+// ========== review.js ==========
+/**
+ * review.js - Riepilogo sopralluogo e generazione report
+ * Allineato al bot: raggruppamento osservazioni per elemento, V.F. renumbering, modifica testo manuale, firmatari
+ */
+const ReviewView = {
+    sopId: null,
+
+    async render(container, params) {
+        this.sopId = params[0];
+        if (!this.sopId) { App.navigate('home', true); return; }
+
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (!sop) { App.navigate('home', true); return; }
+
+        UI.setTitle('Riepilogo');
+
+        const rooms = sop.rooms || {};
+        const roomNames = Object.keys(rooms);
+
+        let html = '';
+
+        // Header info
+        html += `
+            <div class="section">
+                <div class="section-body">
+                    <div class="cell" style="cursor:default">
+                        <div class="cell-body">
+                            <div class="cell-title">${sop.building_code} - ${sop.unit_name || sop.unit_type}</div>
+                            <div class="cell-subtitle">${sop.building_address || ''} | ${sop.floor} | ${sop.stair}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Anagrafica
+        if (sop.owner) {
+            const ownerText = sop.owner.type === 'persona'
+                ? (sop.owner.name || '-')
+                : `${sop.owner.company_name || '-'} (${sop.owner.company_admin || '-'})`;
+            html += UI.section('PROPRIETARIO', `<div class="cell" style="cursor:default"><div class="cell-body"><div class="cell-title">${ownerText}</div></div></div>`);
+        }
+
+        // Statistiche
+        let totalObs = 0;
+        let totalPhotos = 0;
+        for (const name of roomNames) {
+            totalObs += (rooms[name].observations || []).length;
+            totalPhotos += (rooms[name].photos || []).length;
+        }
+
+        html += UI.section('STATISTICHE', `<div class="cell" style="cursor:default"><div class="cell-body">
+            <div class="cell-title">Vani: ${roomNames.length} | Osservazioni: ${totalObs} | Foto: ${totalPhotos}</div>
+        </div></div>`);
+
+        // Per ogni vano: osservazioni raggruppate
+        for (const roomName of roomNames) {
+            const room = rooms[roomName];
+            const observations = room.observations || [];
+
+            let roomHtml = `<div class="cell" style="cursor:default">
+                <div class="cell-body">
+                    <div class="cell-title">${roomName} ${UI.statusBadge(room.status)}</div>
+                    <div class="cell-subtitle">Soffitto: ${room.finishes || '-'} | Osservazioni: ${observations.length}</div>
+                </div>
+            </div>`;
+
+            html += UI.section(roomName.toUpperCase(), roomHtml);
+
+            // Testo: manual_text o generato
+            if (room.manual_text) {
+                html += `<div class="preview-box" style="white-space:pre-wrap; font-size:13px; border-left:3px solid var(--btn);">${room.manual_text}</div>`;
+            } else if (observations.length > 0) {
+                // Genera testo raggruppato con V.F.
+                const groupedText = this.generateRoomText(observations);
+                html += `<div class="preview-box" style="white-space:pre-wrap; font-size:13px;">${groupedText}</div>`;
+            } else {
+                html += `<div class="text-center text-hint py-12">Nessuna osservazione</div>`;
+            }
+
+            // Bottone modifica testo manuale
+            html += `<div class="px-16 py-4"><button class="btn btn-secondary btn-sm" data-room-edit="${roomName}">Modifica Testo</button></div>`;
+        }
+
+        // Preview verbale completo
+        html += UI.section('PREVIEW VERBALE', '');
+        let verbaleText = this.generateVerbalePreview(sop);
+        html += `<div class="preview-box" style="white-space:pre-wrap; font-style:normal; font-size:13px;">${verbaleText}</div>`;
+
+        // Note globali
+        html += this.renderGlobalNotes(sop);
+
+        // Firmatari
+        html += this.renderSigners(sop);
+
+        // Bottoni azione
+        html += `
+            <div class="px-16 py-12 flex-col gap-8">
+                <button class="btn btn-primary" id="btn-sync-report">Sincronizza e Genera Report</button>
+                <button class="btn btn-outline" id="btn-export-json">Esporta JSON</button>
+                <button class="btn btn-secondary" id="btn-back-rooms">Torna ai Vani</button>
+            </div>
+            <div style="height: 32px;"></div>
+        `;
+
+        container.innerHTML = html;
+
+        // Events
+        this.bindEvents(sop);
+    },
+
+    /**
+     * Genera testo raggruppato per vano con V.F. renumbering (come il bot)
+     * Raggruppa osservazioni per elemento, separando con virgola (stesso elemento) e punto e virgola (elementi diversi)
+     */
+    generateRoomText(observations) {
+        if (!observations || observations.length === 0) return '';
+
+        // V.F. renumbering: conta solo foto reali (non NOFOTO/NDR/INGOMBRA senza foto)
+        let vfIndex = 0;
+        const vfMap = []; // index observation → V.F. number (0 = no photo)
+
+        for (const obs of observations) {
+            if (obs.photo_id) {
+                vfIndex++;
+                vfMap.push(vfIndex);
+            } else {
+                vfMap.push(0);
+            }
+        }
+
+        // Raggruppa per elemento
+        const groups = {};
+        for (let i = 0; i < observations.length; i++) {
+            const obs = observations[i];
+            const elemKey = obs.wall || obs.balcone_sub || obs.infisso_type || obs.element || '?';
+            if (!groups[elemKey]) groups[elemKey] = [];
+            groups[elemKey].push({ obs, vf: vfMap[i], index: i });
+        }
+
+        const lines = [];
+        for (const [elemKey, items] of Object.entries(groups)) {
+            const parts = [];
+            for (const { obs, vf } of items) {
+                let text = formatObservationText(obs);
+                if (vf > 0) text += ` (V.F. ${vf})`;
+                parts.push(text);
+            }
+            // Stessi elementi: virgola. Il punto e virgola separa gruppi.
+            lines.push(parts.join(', '));
+        }
+
+        return lines.join(';\n') + (lines.length > 0 ? ';' : '');
+    },
+
+    /**
+     * Genera preview testo del verbale completo
+     */
+    generateVerbalePreview(sop) {
+        const rooms = sop.rooms || {};
+        const roomNames = Object.keys(rooms);
+        let lines = [];
+
+        lines.push(`VERBALE DI SOPRALLUOGO`);
+        lines.push(`Fabbricato: ${sop.building_code} - ${sop.building_address || ''}`);
+        lines.push(`Piano: ${sop.floor} | Scala: ${sop.stair}`);
+        lines.push(`Unità: ${sop.unit_name || sop.unit_type}`);
+        lines.push('');
+
+        if (sop.owner) {
+            if (sop.owner.type === 'persona') {
+                lines.push(`Proprietario: ${sop.owner.name || '-'}`);
+            } else {
+                lines.push(`Società: ${sop.owner.company_name || '-'}`);
+                lines.push(`Amministratore: ${sop.owner.company_admin || '-'}`);
+            }
+            lines.push('');
+        }
+
+        // Presenti
+        if (sop.attendees) {
+            if (sop.attendees.metro_tech) lines.push(`Metro C Tecnico: ${sop.attendees.metro_tech}`);
+            const collText = Array.isArray(sop.attendees.metro_coll)
+                ? sop.attendees.metro_coll.join(', ')
+                : (sop.attendees.metro_coll || '');
+            if (collText) lines.push(`Metro C Collaboratori: ${collText}`);
+            if (sop.attendees.rm) lines.push(`Roma Metropolitane: ${sop.attendees.rm}`);
+            lines.push('');
+        }
+
+        for (const roomName of roomNames) {
+            const room = rooms[roomName];
+            const finishLabel = room.finishes === 'Controsoffitto' ? 'C/S' : '';
+            lines.push(`--- ${roomName}${finishLabel ? ', ' + finishLabel : ''} ---`);
+
+            if (room.status !== 'accessible') {
+                lines.push(`NOTA: ${CONFIG.ROOM_STATUS_LABELS[room.status] || room.status}`);
+            }
+
+            if (room.manual_text) {
+                lines.push(room.manual_text);
+            } else {
+                const observations = room.observations || [];
+                if (observations.length === 0) {
+                    lines.push('Nessuna osservazione.');
+                } else {
+                    lines.push(this.generateRoomText(observations));
+                }
+            }
+            lines.push('');
+        }
+
+        // Note globali
+        if (Array.isArray(sop.global_notes) && sop.global_notes.length > 0) {
+            lines.push('--- NOTE ---');
+            for (const note of sop.global_notes) {
+                const prefix = note.room_name ? `[${note.room_name}] ` : '';
+                lines.push(`${prefix}${note.text}`);
+            }
+            lines.push('');
+        }
+
+        // Firme
+        lines.push('--- FIRME ---');
+        const signers = sop.signers || {};
+        lines.push(`Metro C: ${signers.metro_tech || '________________'}`);
+        lines.push(`Roma Metropolitane: ${signers.rm || '________________'}`);
+        lines.push(`Proprietario/Delegato: ________________`);
+
+        return lines.join('\n');
+    },
+
+    /**
+     * Render sezione note globali
+     */
+    renderGlobalNotes(sop) {
+        const notes = Array.isArray(sop.global_notes) ? sop.global_notes : [];
+
+        let html = `<div class="section"><div class="section-header">NOTE GLOBALI</div></div>`;
+
+        if (notes.length > 0) {
+            for (let i = 0; i < notes.length; i++) {
+                const note = notes[i];
+                const typeLabel = CONFIG.DISCLAIMER_TYPES.find(d => d.value === note.type)?.label || note.type || 'Nota';
+                html += `<div class="obs-card" data-note-index="${i}">
+                    <div class="obs-card-element">${typeLabel}${note.room_name ? ' - ' + note.room_name : ''}</div>
+                    <div class="obs-card-text">${note.text}</div>
+                    <div class="obs-card-footer">
+                        <button class="obs-btn-delete" data-note-delete="${i}" title="Elimina">🗑</button>
+                    </div>
+                </div>`;
+            }
+        } else {
+            html += `<div class="text-center text-hint py-12">Nessuna nota globale</div>`;
+        }
+
+        html += `<div class="px-16 py-4"><button class="btn btn-outline" id="btn-add-global-note">Aggiungi Nota Globale</button></div>`;
+
+        return html;
+    },
+
+    /**
+     * Render sezione firmatari
+     */
+    renderSigners(sop) {
+        const signers = sop.signers || {};
+        let html = `<div class="section"><div class="section-header">FIRMATARI</div><div class="section-body">`;
+
+        html += `<div class="form-group">
+            <label class="form-label">Metro C Tecnico</label>
+            <input class="form-input signer-input" data-signer="metro_tech" value="${signers.metro_tech || ''}" placeholder="Nome firmatario Metro C">
+        </div>`;
+        html += `<div class="form-group">
+            <label class="form-label">Roma Metropolitane</label>
+            <input class="form-input signer-input" data-signer="rm" value="${signers.rm || ''}" placeholder="Nome firmatario RM">
+        </div>`;
+        html += `<div class="form-group">
+            <label class="form-label">Collaboratore Metro C</label>
+            <input class="form-input signer-input" data-signer="metro_coll" value="${signers.metro_coll || ''}" placeholder="Nome firmatario collaboratore">
+        </div>`;
+
+        html += `</div></div>`;
+        return html;
+    },
+
+    bindEvents(sop) {
+        // Sync report
+        document.getElementById('btn-sync-report')?.addEventListener('click', async () => {
+            // Salva firmatari prima
+            await this._saveSigners();
+
+            if (typeof Sync !== 'undefined' && !Sync.isOnline()) {
+                UI.toast('Sei offline. Connettiti per sincronizzare.');
+                return;
+            }
+            if (typeof Sync !== 'undefined') {
+                await Sync.sendToBot(this.sopId);
+            } else {
+                UI.toast('Sync non disponibile');
+            }
+        });
+
+        // Export JSON
+        document.getElementById('btn-export-json')?.addEventListener('click', async () => {
+            await this._saveSigners();
+            await this.exportJSON(sop);
+        });
+
+        // Torna ai vani
+        document.getElementById('btn-back-rooms')?.addEventListener('click', () => {
+            App.navigate(`rooms/${this.sopId}`);
+        });
+
+        // Modifica testo manuale per vano
+        document.querySelectorAll('[data-room-edit]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const roomName = btn.dataset.roomEdit;
+                this.showEditManualTextModal(sop, roomName);
+            });
+        });
+
+        // Aggiungi nota globale
+        document.getElementById('btn-add-global-note')?.addEventListener('click', () => {
+            this.showAddGlobalNoteModal();
+        });
+
+        // Elimina nota globale
+        document.querySelectorAll('[data-note-delete]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.noteDelete);
+                UI.confirmAction('Eliminare questa nota?', async () => {
+                    await Events.dispatch('delete_global_note', this.sopId, { note_index: idx });
+                    UI.toast('Nota eliminata');
+                    const updatedSop = await DB.getSopralluogo(this.sopId);
+                    this.render(document.getElementById('app-content'), [this.sopId]);
+                });
+            });
+        });
+
+        // Salvataggio firmatari on blur
+        document.querySelectorAll('.signer-input').forEach((input) => {
+            input.addEventListener('blur', () => this._saveSigners());
+        });
+    },
+
+    async _saveSigners() {
+        const signers = {};
+        document.querySelectorAll('.signer-input').forEach((input) => {
+            signers[input.dataset.signer] = input.value.trim();
+        });
+        await Events.dispatch('set_signers', this.sopId, signers);
+    },
+
+    showEditManualTextModal(sop, roomName) {
+        const room = sop.rooms[roomName];
+        const currentText = room.manual_text || this.generateRoomText(room.observations || []);
+
+        let html = `<div class="modal-title">Modifica Testo - ${roomName}</div>
+        <div class="form-group">
+            <textarea class="form-input" id="modal-manual-text" rows="10" style="font-size:13px; font-family:monospace;">${currentText}</textarea>
+        </div>
+        <div class="px-16 flex-col gap-8">
+            <button class="btn btn-primary" id="modal-save-text">Salva</button>
+            <button class="btn btn-outline" id="modal-reset-text">Ripristina Auto-Generato</button>
+            <button class="btn btn-secondary" id="modal-cancel-text">Annulla</button>
+        </div>`;
+        UI.showModal(html);
+
+        document.getElementById('modal-save-text').addEventListener('click', async () => {
+            const text = document.getElementById('modal-manual-text').value;
+            await Events.dispatch('set_manual_text', this.sopId, {
+                room_name: roomName,
+                text: text
+            });
+            UI.hideModal();
+            UI.toast('Testo salvato');
+            const updatedSop = await DB.getSopralluogo(this.sopId);
+            this.render(document.getElementById('app-content'), [this.sopId]);
+        });
+
+        document.getElementById('modal-reset-text').addEventListener('click', async () => {
+            await Events.dispatch('set_manual_text', this.sopId, {
+                room_name: roomName,
+                text: null
+            });
+            UI.hideModal();
+            UI.toast('Testo ripristinato');
+            const updatedSop = await DB.getSopralluogo(this.sopId);
+            this.render(document.getElementById('app-content'), [this.sopId]);
+        });
+
+        document.getElementById('modal-cancel-text').addEventListener('click', () => UI.hideModal());
+    },
+
+    showAddGlobalNoteModal() {
+        let html = `<div class="modal-title">Aggiungi Nota Globale</div>
+        <div class="form-group">
+            <label class="form-label">Tipo</label>
+            <div class="btn-grid" style="padding:0; margin-top:8px;">`;
+
+        for (const dt of CONFIG.DISCLAIMER_TYPES) {
+            html += `<button class="btn-choice note-type-btn" data-value="${dt.value}">${dt.label}</button>`;
+        }
+        html += `<button class="btn-choice note-type-btn" data-value="generic">Nota Generica</button>`;
+        html += `</div></div>
+        <div class="form-group">
+            <label class="form-label">Testo</label>
+            <textarea class="form-input" id="modal-note-text" rows="3" placeholder="Testo della nota..."></textarea>
+        </div>
+        <div class="px-16 mt-8">
+            <button class="btn btn-primary" id="modal-save-note">Salva Nota</button>
+        </div>`;
+        UI.showModal(html);
+
+        let selectedType = 'generic';
+        document.querySelectorAll('.note-type-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.note-type-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selectedType = btn.dataset.value;
+            });
+        });
+
+        document.getElementById('modal-save-note').addEventListener('click', async () => {
+            const text = document.getElementById('modal-note-text').value.trim();
+            if (!text) { UI.toast('Inserisci il testo'); return; }
+
+            await Events.dispatch('add_global_note', this.sopId, {
+                note_type: selectedType,
+                note_text: text
+            });
+            UI.hideModal();
+            UI.toast('Nota aggiunta');
+            this.render(document.getElementById('app-content'), [this.sopId]);
+        });
+    },
+
+    /**
+     * Esporta dati come file JSON scaricabile
+     */
+    async exportJSON(sop) {
+        const events = await DB.getEventsBySopralluogo(sop.id);
+        const exportData = {
+            sopralluogo: sop,
+            events: events,
+            exported_at: new Date().toISOString()
+        };
+
+        const json = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `testimoniale_${sop.building_code}_${sop.subalterno || ''}_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        UI.toast('JSON esportato');
+    }
+};
+
+
+// ========== archive.js ==========
+/**
+ * archive.js - Archivio sopralluoghi completati
+ */
+const ArchiveView = {
+    async render(container) {
+        UI.setTitle('Archivio');
+
+        const sopralluoghi = await DB.getAllSopralluoghi();
+
+        let html = '';
+
+        // Filtro
+        html += `
+            <div class="form-group">
+                <input class="form-input" type="text" id="archive-search" placeholder="Cerca per codice fabbricato...">
+            </div>
+        `;
+
+        if (sopralluoghi.length === 0) {
+            html += UI.emptyState('📦', 'Archivio vuoto', 'I sopralluoghi completati appariranno qui');
+        } else {
+            html += '<div id="archive-list">';
+            html += this.renderList(sopralluoghi);
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+
+        // Filtro ricerca
+        document.getElementById('archive-search')?.addEventListener('input', (e) => {
+            const query = e.target.value.trim().toUpperCase();
+            const filtered = query
+                ? sopralluoghi.filter((s) =>
+                    (s.building_code || '').toUpperCase().includes(query) ||
+                    (s.unit_name || '').toUpperCase().includes(query) ||
+                    (s.building_address || '').toUpperCase().includes(query)
+                )
+                : sopralluoghi;
+
+            document.getElementById('archive-list').innerHTML = this.renderList(filtered);
+            this.bindListEvents();
+        });
+
+        this.bindListEvents();
+    },
+
+    renderList(sopralluoghi) {
+        if (sopralluoghi.length === 0) {
+            return '<div class="text-center text-hint py-12">Nessun risultato</div>';
+        }
+
+        let cells = '';
+        for (const sop of sopralluoghi) {
+            const roomCount = Object.keys(sop.rooms || {}).length;
+            const date = sop.created_at ? new Date(sop.created_at).toLocaleDateString('it-IT') : '-';
+            const syncIcon = sop.synced ? '☁️' : '📱';
+
+            cells += UI.cell({
+                icon: syncIcon,
+                title: `${sop.building_code} - ${sop.unit_name || sop.unit_type || ''}`,
+                subtitle: `${sop.floor || ''} | ${roomCount} vani | ${date}`,
+                dataId: sop.id
+            });
+        }
+
+        return `<div class="section"><div class="section-body">${cells}</div></div>`;
+    },
+
+    bindListEvents() {
+        document.querySelectorAll('#archive-list .cell[data-id]').forEach((cell) => {
+            cell.addEventListener('click', () => {
+                const id = cell.dataset.id;
+                App.navigate(`review/${id}`);
+            });
+        });
+    }
+};
+
+
+// ========== app.js (standalone - no service worker) ==========
+/**
+ * app.js - Router SPA e inizializzazione Telegram WebApp
+ */
+const App = {
+    currentView: null,
+    currentParams: {},
+
+    // Mappa route → modulo vista
+    routes: {
+        'home': HomeView,
+        'setup': SetupView,
+        'anagrafica': AnagraficaView,
+        'rooms': RoomsView,
+        'room': RoomsView,       // sub-route per singolo vano
+        'wizard': WizardView,
+        'review': ReviewView,
+        'archive': ArchiveView
+    },
+
+    /**
+     * Inizializzazione app
+     */
+    async init() {
+        // Init Telegram WebApp
+        if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+
+            // Imposta colore header
+            try {
+                Telegram.WebApp.setHeaderColor('secondary_bg_color');
+            } catch (e) { /* older SDK */ }
+        }
+
+        // Init IndexedDB
+        await DB.open();
+
+        // Init sync indicator
+        Sync.init();
+
+        // Router: ascolta hash changes
+        window.addEventListener('hashchange', () => this.handleRoute());
+
+        // Gestisci tasto back di Telegram
+        if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.BackButton.onClick(() => {
+                if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    this.navigate('home');
+                }
+            });
+        }
+
+        // Prima navigazione
+        if (!location.hash || location.hash === '#') {
+            this.navigate('home');
+        } else {
+            this.handleRoute();
+        }
+    },
+
+    /**
+     * Naviga a una route
+     */
+    navigate(route, replace = false) {
+        if (replace) {
+            location.replace('#' + route);
+        } else {
+            location.hash = route;
+        }
+    },
+
+    /**
+     * Gestisci cambio route
+     */
+    handleRoute() {
+        const hash = location.hash.slice(1) || 'home';
+        const parts = hash.split('/');
+        const viewName = parts[0];
+        const params = parts.slice(1);
+
+        // Trova il modulo vista
+        const ViewModule = this.routes[viewName];
+        if (!ViewModule) {
+            this.navigate('home', true);
+            return;
+        }
+
+        // Gestisci back button Telegram
+        if (window.Telegram && Telegram.WebApp) {
+            if (viewName === 'home') {
+                Telegram.WebApp.BackButton.hide();
+            } else {
+                Telegram.WebApp.BackButton.show();
+            }
+        }
+
+        // Gestisci back button HTML
+        UI.showBack(viewName !== 'home');
+
+        this.currentView = viewName;
+        this.currentParams = params;
+
+        // Render vista
+        const content = document.getElementById('app-content');
+        content.scrollTop = 0;
+
+        ViewModule.render(content, params);
+    },
+
+    /**
+     * Ottieni il sopralluogo corrente dall'URL
+     */
+    getSopralluogoId() {
+        return this.currentParams[0] || null;
+    }
+};
+
+// ========== AVVIO ==========
+document.addEventListener('DOMContentLoaded', () => {
+    App.init().catch((e) => console.error('App init error:', e));
+});
+
+    </script>
+</body>
+</html>
