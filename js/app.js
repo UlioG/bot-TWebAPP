@@ -1,210 +1,172 @@
-/* ============================================================
- * app.js — SPA controller e routing hash-based
- * ============================================================ */
+/**
+ * app.js - Router SPA e inizializzazione Telegram WebApp
+ */
+const App = {
+    currentView: null,
+    currentParams: {},
 
-'use strict';
+    // Mappa route → modulo vista
+    routes: {
+        'home': HomeView,
+        'setup': SetupView,
+        'anagrafica': AnagraficaView,
+        'rooms': RoomsView,
+        'room': RoomsView,
+        'wizard': WizardView,
+        'review': ReviewView,
+        'archive': ArchiveView,
+        'stairs': StairsView,
+        'pertinenze': PertinenzaView,
+        'prospetti': ProspettiView
+    },
 
-const App = (() => {
-
-    let _currentView = null;
-    let _history = [];
-
-    // ===== ROUTES =====
-    const ROUTES = {
-        ''          : () => HomeView,
-        'home'      : () => HomeView,
-        'setup'     : () => SetupView,
-        'anagrafica': () => AnagraficaView,
-        'rooms'     : () => RoomsView,
-        'wizard'    : () => WizardView,
-        'review'    : () => ReviewView,
-        'pertinenze': () => PertinenzeView,
-        'stairs'    : () => StairsView,
-        'prospetti' : () => ProspettiView,
-    };
-
-    // ===== INIT =====
-    async function init() {
-        // Telegram WebApp setup
+    /**
+     * Inizializzazione app
+     */
+    async init() {
+        // Init Telegram WebApp
         if (window.Telegram && Telegram.WebApp) {
             Telegram.WebApp.ready();
             Telegram.WebApp.expand();
-            if (Telegram.WebApp.requestFullscreen) Telegram.WebApp.requestFullscreen();
-            Telegram.WebApp.BackButton.onClick(() => goBack());
+
+            // Fullscreen (Telegram WebApp SDK 8.0+)
+            try {
+                if (Telegram.WebApp.requestFullscreen) {
+                    Telegram.WebApp.requestFullscreen();
+                }
+            } catch (e) { /* older SDK */ }
+
+            // Imposta colore header
+            try {
+                Telegram.WebApp.setHeaderColor('secondary_bg_color');
+            } catch (e) { /* older SDK */ }
+
+            // Salva dati operatore da Telegram
+            try {
+                const user = Telegram.WebApp.initDataUnsafe?.user;
+                if (user) {
+                    App._telegramUser = {
+                        id: user.id,
+                        name: [user.first_name, user.last_name].filter(Boolean).join(' ')
+                    };
+                }
+            } catch (e) { /* no user data */ }
         }
 
-        // Open DB
+        // Init IndexedDB
         await DB.open();
 
-        // Sync init
-        if (typeof Sync !== 'undefined') Sync.init();
+        // Init sync: risolvi URL tunnel + avvia indicatore
+        await Sync.init();
 
-        // Service Worker
+        // Register Service Worker
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').catch(() => {});
+            try {
+                await navigator.serviceWorker.register('./sw.js');
+            } catch (e) {
+                console.warn('Service Worker registration failed:', e);
+            }
         }
 
-        // Header buttons
-        document.getElementById('btn-back').addEventListener('click', goBack);
-        document.getElementById('btn-home').addEventListener('click', () => navigate('home'));
+        // Router: ascolta hash changes
+        window.addEventListener('hashchange', () => this.handleRoute());
 
-        // Hash routing
-        window.addEventListener('hashchange', _onHashChange);
-        _onHashChange();
-    }
-
-    // ===== NAVIGATION =====
-    function navigate(route, params) {
-        const hash = params ? `${route}?${_encodeParams(params)}` : route;
-        if (location.hash === '#' + hash) {
-            // Stesso hash, forza re-render
-            _onHashChange();
-        } else {
-            location.hash = hash;
-        }
-    }
-
-    function goBack() {
-        if (_history.length > 1) {
-            _history.pop();
-            const prev = _history[_history.length - 1];
-            location.hash = prev;
-        } else {
-            navigate('home');
-        }
-    }
-
-    function _onHashChange() {
-        const raw = location.hash.replace(/^#\/?/, '');
-        const [route, queryStr] = raw.split('?');
-        const params = queryStr ? _decodeParams(queryStr) : {};
-        const viewName = route || 'home';
-
-        // Track history
-        const fullHash = location.hash;
-        if (_history[_history.length - 1] !== fullHash) {
-            _history.push(fullHash);
-            if (_history.length > 50) _history.shift();
-        }
-
-        // Header
-        _updateHeader(viewName);
-
-        // Resolve view
-        const viewFactory = ROUTES[viewName];
-        if (!viewFactory) {
-            _showError('Pagina non trovata: ' + viewName);
-            return;
-        }
-
-        const ViewModule = viewFactory();
-        if (!ViewModule || !ViewModule.render) {
-            _showError('Modulo non caricato: ' + viewName);
-            return;
-        }
-
-        const container = document.getElementById('app-content');
-        container.innerHTML = '';
-        _currentView = ViewModule;
-
-        try {
-            ViewModule.render(container, params);
-        } catch (err) {
-            console.error('Render error:', err);
-            _showError('Errore nel caricamento della pagina.');
-        }
-    }
-
-    function _updateHeader(viewName) {
-        const backBtn = document.getElementById('btn-back');
-        const homeBtn = document.getElementById('btn-home');
-        const title = document.getElementById('header-title');
-
-        const isHome = viewName === 'home' || viewName === '';
-        backBtn.classList.toggle('hidden', isHome);
-        homeBtn.classList.toggle('hidden', isHome);
-
-        // Telegram back button
+        // Gestisci tasto back di Telegram
         if (window.Telegram && Telegram.WebApp) {
-            isHome ? Telegram.WebApp.BackButton.hide() : Telegram.WebApp.BackButton.show();
+            Telegram.WebApp.BackButton.onClick(() => {
+                if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    this.navigate('home');
+                }
+            });
         }
 
-        const titles = {
-            'home': 'Testimoniale',
-            'setup': 'Nuovo Sopralluogo',
-            'anagrafica': 'Anagrafica',
-            'rooms': 'Sopralluogo',
-            'wizard': 'Osservazione',
-            'review': 'Riepilogo',
-            'pertinenze': 'Pertinenze',
-            'stairs': 'Scala',
-            'prospetti': 'Prospetti'
-        };
-        title.textContent = titles[viewName] || 'Testimoniale';
-    }
-
-    // ===== TOAST =====
-    function toast(msg, duration) {
-        duration = duration || 3000;
-        const el = document.getElementById('toast');
-        el.textContent = msg;
-        el.classList.remove('hidden');
-        clearTimeout(el._timer);
-        el._timer = setTimeout(() => el.classList.add('hidden'), duration);
-    }
-
-    // ===== MODAL =====
-    function showModal(html) {
-        const overlay = document.getElementById('modal-overlay');
-        const content = document.getElementById('modal-content');
-        content.innerHTML = html;
-        overlay.classList.remove('hidden');
-        overlay.onclick = (e) => {
-            if (e.target === overlay) hideModal();
-        };
-    }
-
-    function hideModal() {
-        document.getElementById('modal-overlay').classList.add('hidden');
-    }
-
-    // ===== CONFIRM =====
-    function confirm(msg) {
-        return new Promise(resolve => {
-            showModal(`
-                <p>${msg}</p>
-                <div class="modal-actions">
-                    <button class="btn btn-secondary" id="modal-no">No</button>
-                    <button class="btn btn-primary" id="modal-yes">Si</button>
-                </div>
-            `);
-            document.getElementById('modal-yes').onclick = () => { hideModal(); resolve(true); };
-            document.getElementById('modal-no').onclick = () => { hideModal(); resolve(false); };
+        // Pulsante Home (sempre visibile)
+        document.getElementById('btn-home')?.addEventListener('click', () => {
+            this.navigate('home');
         });
+
+        // Prima navigazione
+        if (!location.hash || location.hash === '#') {
+            this.navigate('home');
+        } else {
+            this.handleRoute();
+        }
+    },
+
+    /**
+     * Naviga a una route
+     */
+    navigate(route, replace = false) {
+        if (replace) {
+            location.replace('#' + route);
+        } else {
+            location.hash = route;
+        }
+    },
+
+    /**
+     * Gestisci cambio route
+     */
+    handleRoute() {
+        const hash = location.hash.slice(1) || 'home';
+        const parts = hash.split('/');
+        const viewName = parts[0];
+        const params = parts.slice(1);
+
+        // Trova il modulo vista
+        const ViewModule = this.routes[viewName];
+        if (!ViewModule) {
+            this.navigate('home', true);
+            return;
+        }
+
+        // Gestisci back button Telegram
+        if (window.Telegram && Telegram.WebApp) {
+            if (viewName === 'home') {
+                Telegram.WebApp.BackButton.hide();
+            } else {
+                Telegram.WebApp.BackButton.show();
+            }
+        }
+
+        // Gestisci back button HTML
+        UI.showBack(viewName !== 'home');
+
+        // Nascondi/mostra Home button (inutile sulla home stessa)
+        const homeBtn = document.getElementById('btn-home');
+        if (homeBtn) homeBtn.classList.toggle('hidden', viewName === 'home');
+
+        this.currentView = viewName;
+        this.currentParams = params;
+
+        // Render vista
+        const content = document.getElementById('app-content');
+        if (content) {
+            content.scrollTop = 0;
+            ViewModule.render(content, params);
+        }
+    },
+
+    /**
+     * Ottieni il sopralluogo corrente dall'URL
+     */
+    getSopralluogoId() {
+        return this.currentParams[0] || null;
+    },
+
+    /**
+     * Dati operatore Telegram (se disponibili)
+     */
+    _telegramUser: null,
+
+    getTelegramUser() {
+        return this._telegramUser;
     }
+};
 
-    // ===== HELPERS =====
-    function _encodeParams(params) {
-        return Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
-    }
-
-    function _decodeParams(str) {
-        const params = {};
-        str.split('&').forEach(pair => {
-            const [k, v] = pair.split('=');
-            params[k] = decodeURIComponent(v || '');
-        });
-        return params;
-    }
-
-    function _showError(msg) {
-        document.getElementById('app-content').innerHTML = `<div class="error-page"><p>${msg}</p></div>`;
-    }
-
-    // ===== PUBLIC =====
-    return { init, navigate, goBack, toast, showModal, hideModal, confirm };
-
-})();
-
-// Boot
-document.addEventListener('DOMContentLoaded', () => App.init());
+// ========== AVVIO ==========
+document.addEventListener('DOMContentLoaded', () => {
+    App.init().catch((e) => console.error('App init error:', e));
+});

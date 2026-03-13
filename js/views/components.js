@@ -1,204 +1,559 @@
-/* ============================================================
- * components.js — UI helpers riutilizzabili
- * ============================================================ */
+/**
+ * components.js - Componenti UI riutilizzabili
+ * Flat Design: rgb(128,0,0) + rgb(27,29,31) + white
+ * XSS prevention: _escapeHtml() su tutti i dati utente
+ */
+const UI = {
+    /**
+     * Escape HTML per prevenzione XSS
+     */
+    _escapeHtml(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    },
 
-'use strict';
+    /**
+     * Mostra toast notification
+     */
+    toast(message, duration = 2500) {
+        const el = document.getElementById('toast');
+        el.textContent = message;
+        el.classList.remove('hidden');
+        clearTimeout(UI._toastTimer);
+        UI._toastTimer = setTimeout(() => el.classList.add('hidden'), duration);
+    },
+    _toastTimer: null,
 
-const UI = (() => {
+    /**
+     * Mostra/nascondi modal
+     */
+    showModal(html) {
+        const overlay = document.getElementById('modal-overlay');
+        const content = document.getElementById('modal-content');
+        content.innerHTML = html;
+        overlay.classList.remove('hidden');
+        overlay.onclick = (e) => {
+            if (e.target === overlay) UI.hideModal();
+        };
+    },
 
-    // ===== CREA BOTTONE =====
-    function btn(text, className, onClick) {
-        const b = document.createElement('button');
-        b.className = 'btn ' + (className || '');
-        b.textContent = text;
-        if (onClick) b.addEventListener('click', onClick);
-        return b;
-    }
+    hideModal() {
+        document.getElementById('modal-overlay').classList.add('hidden');
+    },
 
-    // ===== GRIGLIA BOTTONI =====
-    function buttonGrid(items, cols, onClick) {
-        const grid = document.createElement('div');
-        grid.className = `btn-grid cols-${cols || 2}`;
-        items.forEach(item => {
-            const label = typeof item === 'string' ? item : item.label;
-            const value = typeof item === 'string' ? item : item.value;
-            const cls = typeof item === 'object' && item.className ? item.className : 'btn-secondary';
-            const b = btn(label, cls, () => onClick(value, b));
-            if (typeof item === 'object' && item.selected) b.classList.add('selected');
-            grid.appendChild(b);
-        });
-        return grid;
-    }
+    /**
+     * Imposta titolo header
+     */
+    setTitle(title) {
+        document.getElementById('header-title').textContent = title;
+    },
 
-    // ===== CARD =====
-    function card(title, content, onClick) {
-        const c = document.createElement('div');
-        c.className = 'card';
-        if (onClick) { c.style.cursor = 'pointer'; c.addEventListener('click', onClick); }
-        if (title) {
-            const t = document.createElement('div');
-            t.className = 'card-title';
-            t.textContent = title;
-            c.appendChild(t);
-        }
-        if (typeof content === 'string') {
-            const p = document.createElement('div');
-            p.className = 'card-subtitle';
-            p.textContent = content;
-            c.appendChild(p);
-        } else if (content instanceof HTMLElement) {
-            c.appendChild(content);
-        }
-        return c;
-    }
-
-    // ===== SECTION HEADER =====
-    function sectionHeader(text) {
-        const h = document.createElement('div');
-        h.className = 'section-header';
-        h.textContent = text;
-        return h;
-    }
-
-    // ===== FORM INPUT =====
-    function formGroup(label, type, value, placeholder, attrs) {
-        const group = document.createElement('div');
-        group.className = 'form-group';
-        if (label) {
-            const lbl = document.createElement('label');
-            lbl.className = 'form-label';
-            lbl.textContent = label;
-            group.appendChild(lbl);
-        }
-        let input;
-        if (type === 'textarea') {
-            input = document.createElement('textarea');
+    /**
+     * Mostra/nascondi back button
+     */
+    showBack(show, onClick) {
+        const btn = document.getElementById('btn-back');
+        if (show) {
+            btn.classList.remove('hidden');
+            btn.onclick = onClick || (() => history.back());
         } else {
-            input = document.createElement('input');
-            input.type = type || 'text';
+            btn.classList.add('hidden');
+            btn.onclick = null;
         }
-        input.className = 'form-input';
-        input.value = value || '';
-        if (placeholder) input.placeholder = placeholder;
-        if (attrs) Object.entries(attrs).forEach(([k, v]) => input.setAttribute(k, v));
-        group.appendChild(input);
-        return { group, input };
-    }
+    },
 
-    // ===== ROOM CARD =====
-    function roomCard(name, meta, statusClass, onClick) {
-        const c = document.createElement('div');
-        c.className = 'room-card ' + (statusClass || '');
-        c.innerHTML = `
-            <div class="room-info">
-                <div class="room-name">${_esc(name)}</div>
-                <div class="room-meta">${_esc(meta || '')}</div>
+    // ========== LAYOUT COMPONENTS ==========
+
+    /**
+     * Crea una sezione raggruppata
+     */
+    section(header, bodyHtml) {
+        return `
+            <div class="section">
+                ${header ? `<div class="section-header">${UI._escapeHtml(header)}</div>` : ''}
+                <div class="section-body">${bodyHtml}</div>
             </div>
-            <div class="room-arrow">&#8250;</div>
         `;
-        if (onClick) c.addEventListener('click', onClick);
-        return c;
-    }
+    },
 
-    // ===== BADGE =====
-    function badge(text, type) {
-        const b = document.createElement('span');
-        b.className = 'badge badge-' + (type || 'info');
-        b.textContent = text;
-        return b;
-    }
+    /**
+     * Header contestuale (appartamento / pertinenza)
+     */
+    contextHeader(text, icon) {
+        return `
+            <div class="context-header">
+                ${icon ? `<span class="context-header-icon">${icon}</span>` : ''}
+                <span class="context-header-text">${UI._escapeHtml(text)}</span>
+            </div>
+        `;
+    },
 
-    // ===== EMPTY STATE =====
-    function emptyState(icon, text) {
-        const d = document.createElement('div');
-        d.className = 'empty-state';
-        d.innerHTML = `<div class="empty-icon">${icon || ''}</div><div class="empty-text">${_esc(text)}</div>`;
-        return d;
-    }
+    /**
+     * Info card (per riepilogo dati)
+     */
+    infoCard(rows) {
+        const rowsHtml = rows.map(r => `
+            <div class="summary-row">
+                <span class="summary-label">${UI._escapeHtml(r.label)}</span>
+                <span class="summary-value">${UI._escapeHtml(r.value)}</span>
+            </div>
+        `).join('');
+        return `<div class="info-card">${rowsHtml}</div>`;
+    },
 
-    // ===== PREVIEW BLOCK =====
-    function previewBlock(text) {
-        const d = document.createElement('div');
-        d.className = 'preview-block';
-        d.textContent = text;
-        return d;
-    }
+    /**
+     * Divider
+     */
+    divider() {
+        return '<div class="divider"></div>';
+    },
 
-    // ===== REVIEW SECTION =====
-    function reviewSection(title, content, onEdit) {
-        const sec = document.createElement('div');
-        sec.className = 'review-section';
-        const header = document.createElement('div');
-        header.className = 'review-section-header';
-        const t = document.createElement('div');
-        t.className = 'review-section-title';
-        t.textContent = title;
-        header.appendChild(t);
-        if (onEdit) {
-            const editBtn = document.createElement('button');
-            editBtn.className = 'review-edit-btn';
-            editBtn.textContent = 'Modifica';
-            editBtn.addEventListener('click', onEdit);
-            header.appendChild(editBtn);
+    // ========== INTERACTIVE COMPONENTS ==========
+
+    /**
+     * Crea una cella cliccabile
+     */
+    cell({ icon, title, subtitle, badge, chevron = true, onClick, dataId, className }) {
+        const esc = UI._escapeHtml;
+        const attrs = dataId ? ` data-id="${esc(dataId)}"` : '';
+        const cls = className ? ` ${className}` : '';
+        const onClickAttr = onClick ? ` onclick="${onClick}"` : '';
+        return `
+            <div class="cell${cls}"${attrs}${onClickAttr}>
+                ${icon ? `<div class="cell-icon">${icon}</div>` : ''}
+                <div class="cell-body">
+                    <div class="cell-title">${esc(title)}</div>
+                    ${subtitle ? `<div class="cell-subtitle">${esc(subtitle)}</div>` : ''}
+                </div>
+                ${badge ? `<span class="cell-badge">${esc(badge)}</span>` : ''}
+                ${chevron ? '<span class="cell-chevron">&#8250;</span>' : ''}
+            </div>
+        `;
+    },
+
+    /**
+     * Crea griglia di bottoni scelta
+     */
+    buttonGrid(items, options = {}) {
+        const colsCls = options.cols === 3 ? 'btn-grid-3' : options.cols === 1 ? 'btn-grid-1' : '';
+        const buttons = items.map((item) => {
+            const val = typeof item === 'string' ? item : item.value;
+            const label = typeof item === 'string' ? item : item.label;
+            const cls = (typeof item === 'object' && item.className) ? ` ${item.className}` : '';
+            const disabled = (typeof item === 'object' && item.disabled) ? ' disabled' : '';
+            return `<button class="btn-choice${cls}" data-value="${UI._escapeHtml(val)}"${disabled}>${UI._escapeHtml(label)}</button>`;
+        }).join('');
+        return `<div class="btn-grid ${colsCls}">${buttons}</div>`;
+    },
+
+    /**
+     * Griglia piani (layout 3 colonne con abbreviazioni)
+     */
+    floorGrid(floors, selectedFloors) {
+        selectedFloors = selectedFloors || [];
+        const buttons = floors.map(f => {
+            const abbr = CONFIG.getFloorAbbr(f);
+            const selected = selectedFloors.includes(f) ? ' selected' : '';
+            return `<button class="btn-choice btn-floor${selected}" data-value="${UI._escapeHtml(f)}" title="${UI._escapeHtml(f)}">${UI._escapeHtml(abbr)}</button>`;
+        }).join('');
+        return `<div class="btn-grid btn-grid-3">${buttons}</div>`;
+    },
+
+    /**
+     * Griglia categorie Parti Comuni (3 pulsanti grandi)
+     */
+    pcCategoryGrid() {
+        return `
+            <div class="pc-cat-grid">
+                <button class="pc-cat-btn" data-cat="vani">
+                    <span class="pc-cat-icon">🏠</span>
+                    <span class="pc-cat-label">Vani</span>
+                </button>
+                <button class="pc-cat-btn" data-cat="scale">
+                    <span class="pc-cat-icon">🪜</span>
+                    <span class="pc-cat-label">Scale</span>
+                </button>
+                <button class="pc-cat-btn" data-cat="prospetti">
+                    <span class="pc-cat-icon">🏛</span>
+                    <span class="pc-cat-label">Prospetti</span>
+                </button>
+            </div>
+        `;
+    },
+
+    /**
+     * Crea menu raggruppato con chips (per wizard)
+     */
+    groupedMenu(groups, multiSelect = false) {
+        let html = '';
+        for (const [title, items] of Object.entries(groups)) {
+            const chips = items.map((item) => {
+                const cls = multiSelect ? 'menu-chip check' : 'menu-chip';
+                return `<button class="${cls}" data-value="${UI._escapeHtml(item)}">${UI._escapeHtml(item)}</button>`;
+            }).join('');
+            html += `
+                <div class="menu-group">
+                    <div class="menu-group-title">${UI._escapeHtml(title)}</div>
+                    <div class="menu-group-items">${chips}</div>
+                </div>
+            `;
         }
-        sec.appendChild(header);
-        if (typeof content === 'string') {
-            sec.appendChild(previewBlock(content));
-        } else if (content instanceof HTMLElement) {
-            sec.appendChild(content);
-        }
-        return sec;
-    }
+        return html;
+    },
 
-    // ===== TOGGLE =====
-    function toggle(label, options, selected, onChange) {
-        const row = document.createElement('div');
-        row.className = 'toggle-row';
-        const lbl = document.createElement('span');
-        lbl.textContent = label;
-        row.appendChild(lbl);
-        const btns = document.createElement('div');
-        btns.className = 'toggle-btns';
-        options.forEach(opt => {
-            const b = document.createElement('button');
-            b.className = 'toggle-btn' + (opt.value === selected ? ' active' : '');
-            b.textContent = opt.label;
-            b.addEventListener('click', () => {
-                btns.querySelectorAll('.toggle-btn').forEach(x => x.classList.remove('active'));
-                b.classList.add('active');
-                onChange(opt.value);
-            });
-            btns.appendChild(b);
+    /**
+     * Crea chips piatti (senza gruppi)
+     */
+    chipList(items, multiSelect = false) {
+        const cls = multiSelect ? 'menu-chip check' : 'menu-chip';
+        const chips = items.map((item) =>
+            `<button class="${cls}" data-value="${UI._escapeHtml(item)}">${UI._escapeHtml(item)}</button>`
+        ).join('');
+        return `<div class="menu-group-items" style="padding: 8px 16px;">${chips}</div>`;
+    },
+
+    /**
+     * Toggle switch con label
+     */
+    toggleRow(label, checked, id) {
+        return `
+            <div class="toggle-row">
+                <span class="toggle-label">${UI._escapeHtml(label)}</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="${UI._escapeHtml(id)}"${checked ? ' checked' : ''}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        `;
+    },
+
+    // ========== PROGRESS & STATUS ==========
+
+    /**
+     * Stepper indicatore step
+     */
+    stepper(total, current) {
+        let dots = '';
+        for (let i = 0; i < total; i++) {
+            const cls = i < current ? 'done' : i === current ? 'active' : '';
+            dots += `<div class="stepper-dot ${cls}"></div>`;
+        }
+        return `<div class="stepper">${dots}</div>`;
+    },
+
+    /**
+     * Progress bar
+     */
+    progressBar(current, total, label) {
+        const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+        return `
+            <div class="progress-container">
+                ${label ? `<div class="progress-label">${UI._escapeHtml(label)}</div>` : ''}
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${pct}%"></div>
+                </div>
+                <div class="progress-text">${current}/${total}</div>
+            </div>
+        `;
+    },
+
+    /**
+     * Status badge
+     */
+    statusBadge(status) {
+        const labels = {
+            accessible: 'Accessibile',
+            non_accessibile: 'Non Accessibile',
+            non_valutabile: 'Non Valutabile',
+            non_autorizzato: 'Non Autorizzato',
+            completed: 'Completato',
+            in_progress: 'In Corso'
+        };
+        return `<span class="status-badge status-${UI._escapeHtml(status)}">${UI._escapeHtml(labels[status] || status)}</span>`;
+    },
+
+    /**
+     * Mostra superfici mancanti per un vano
+     */
+    missingSurfaces(completedSurfaces, isStair, isProspetto) {
+        if (isStair || isProspetto) return ''; // No surface tracking
+        const completed = completedSurfaces || [];
+        const required = CONFIG.REQUIRED_SURFACES || ['Soffitto', 'Pareti', 'Pavimento'];
+        const missing = required.filter(s => !completed.includes(s));
+        if (missing.length === 0) return '';
+        return `<div class="missing-surfaces">Superfici mancanti: ${UI._escapeHtml(missing.join(', '))}</div>`;
+    },
+
+    // ========== OBSERVATION CARD ==========
+
+    /**
+     * Card osservazione con bottoni edit/delete
+     */
+    observationCard(obs, index, options = {}) {
+        const esc = UI._escapeHtml;
+        const photoLabel = obs.photo_id ? '📷 Con foto' : 'Senza foto';
+        const showActions = options.showActions !== false;
+
+        let elemLabel = obs.stair_subsection || obs.wall || obs.balcone_sub || obs.element || '';
+        if (obs.has_counterwall) elemLabel += ' (c/p)';
+        if (obs.infisso_type) {
+            const parts = [obs.infisso_type];
+            if (obs.infisso_which) parts.push(obs.infisso_which);
+            elemLabel = parts.join(' ');
+        }
+
+        // Use formatters.js if available, fallback to simple text
+        let obsText = '';
+        if (typeof Formatters !== 'undefined' && Formatters.formatObservationText) {
+            obsText = Formatters.formatObservationText(obs, { includeVF: false });
+        } else {
+            obsText = obs.phenomenon || '';
+        }
+
+        let actionsHtml = '';
+        if (showActions) {
+            actionsHtml = `<div class="obs-card-actions">
+                <button class="obs-btn-edit" data-obs-index="${index}" title="Modifica">✏️</button>
+                <button class="obs-btn-delete" data-obs-index="${index}" title="Elimina">🗑</button>
+            </div>`;
+        }
+
+        return `
+            <div class="obs-card" data-obs-index="${index}">
+                <div class="obs-card-element">${esc(elemLabel)}</div>
+                <div class="obs-card-text">${esc(obsText)}</div>
+                <div class="obs-card-footer">
+                    <span class="obs-card-photo">${photoLabel}</span>
+                    ${actionsHtml}
+                </div>
+            </div>
+        `;
+    },
+
+    // ========== EMPTY STATES & FEEDBACK ==========
+
+    /**
+     * Empty state
+     */
+    emptyState(icon, title, text) {
+        return `
+            <div class="empty-state">
+                <div class="empty-state-icon">${icon}</div>
+                <div class="empty-state-title">${UI._escapeHtml(title)}</div>
+                <div class="empty-state-text">${UI._escapeHtml(text)}</div>
+            </div>
+        `;
+    },
+
+    /**
+     * Loading spinner
+     */
+    spinner(text) {
+        return `
+            <div class="loading-container">
+                <div class="spinner"></div>
+                ${text ? `<div class="loading-text">${UI._escapeHtml(text)}</div>` : ''}
+            </div>
+        `;
+    },
+
+    /**
+     * Banner allontanamento
+     */
+    allontanaBanner(text) {
+        return `
+            <div class="allontana-banner">
+                <span class="allontana-icon">🚪</span>
+                <span class="allontana-text">${UI._escapeHtml(text)}</span>
+            </div>
+        `;
+    },
+
+    // ========== FORM COMPONENTS ==========
+
+    /**
+     * Form input con label
+     */
+    formInput({ label, placeholder, id, type = 'text', value = '', multiline = false, rows = 3 }) {
+        const esc = UI._escapeHtml;
+        const inputEl = multiline
+            ? `<textarea class="form-input form-textarea" id="${esc(id)}" placeholder="${esc(placeholder || '')}" rows="${rows}">${esc(value)}</textarea>`
+            : `<input class="form-input" type="${esc(type)}" id="${esc(id)}" placeholder="${esc(placeholder || '')}" value="${esc(value)}">`;
+        return `
+            <div class="form-group">
+                ${label ? `<label class="form-label" for="${esc(id)}">${esc(label)}</label>` : ''}
+                ${inputEl}
+            </div>
+        `;
+    },
+
+    // ========== DIALOGS ==========
+
+    /**
+     * Conferma azione distruttiva
+     */
+    confirmAction(message, onConfirm, options = {}) {
+        const confirmLabel = options.confirmLabel || 'Conferma';
+        const cancelLabel = options.cancelLabel || 'Annulla';
+        const destructive = options.destructive !== false;
+        const btnStyle = destructive ? ' style="background:var(--destructive)"' : '';
+
+        const html = `
+            <div class="modal-title">${UI._escapeHtml(message)}</div>
+            <div style="padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px;">
+                <button class="btn btn-primary" id="modal-confirm"${btnStyle}>${UI._escapeHtml(confirmLabel)}</button>
+                <button class="btn btn-secondary" id="modal-cancel">${UI._escapeHtml(cancelLabel)}</button>
+            </div>
+        `;
+        UI.showModal(html);
+        document.getElementById('modal-confirm').addEventListener('click', () => {
+            UI.hideModal();
+            onConfirm();
         });
-        row.appendChild(btns);
-        return row;
+        document.getElementById('modal-cancel').addEventListener('click', () => UI.hideModal());
+    },
+
+    /**
+     * Prompt con input testuale
+     */
+    promptInput(title, placeholder, onConfirm, options = {}) {
+        const defaultVal = options.defaultValue || '';
+        const multiline = options.multiline || false;
+        const inputEl = multiline
+            ? `<textarea class="form-input form-textarea" id="modal-input" placeholder="${UI._escapeHtml(placeholder)}" rows="4">${UI._escapeHtml(defaultVal)}</textarea>`
+            : `<input class="form-input" id="modal-input" type="text" placeholder="${UI._escapeHtml(placeholder)}" value="${UI._escapeHtml(defaultVal)}">`;
+
+        const html = `
+            <div class="modal-title">${UI._escapeHtml(title)}</div>
+            <div style="padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px;">
+                ${inputEl}
+                <button class="btn btn-primary" id="modal-confirm">Conferma</button>
+                <button class="btn btn-secondary" id="modal-cancel">Annulla</button>
+            </div>
+        `;
+        UI.showModal(html);
+        const input = document.getElementById('modal-input');
+        input.focus();
+        document.getElementById('modal-confirm').addEventListener('click', () => {
+            const val = input.value.trim();
+            if (val) {
+                UI.hideModal();
+                onConfirm(val);
+            }
+        });
+        document.getElementById('modal-cancel').addEventListener('click', () => UI.hideModal());
+    },
+
+    /**
+     * Modal scelta multipla
+     */
+    choiceModal(title, choices, onSelect) {
+        const btns = choices.map((c, i) => {
+            const val = typeof c === 'string' ? c : c.value;
+            const label = typeof c === 'string' ? c : c.label;
+            return `<button class="btn btn-secondary modal-choice-btn" data-idx="${i}" data-value="${UI._escapeHtml(val)}">${UI._escapeHtml(label)}</button>`;
+        }).join('');
+
+        const html = `
+            <div class="modal-title">${UI._escapeHtml(title)}</div>
+            <div style="padding: 0 16px 16px; display: flex; flex-direction: column; gap: 8px;">
+                ${btns}
+            </div>
+        `;
+        UI.showModal(html);
+        document.querySelectorAll('.modal-choice-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                UI.hideModal();
+                onSelect(btn.dataset.value, parseInt(btn.dataset.idx));
+            });
+        });
+    },
+
+    // ========== PERTINENZE ==========
+
+    /**
+     * Item pertinenza nella lista
+     */
+    pertinenzaItem(pert, index, options = {}) {
+        const esc = UI._escapeHtml;
+        const completed = pert.completed ? '✅' : '⬜';
+        const roomCount = pert.rooms ? Object.keys(pert.rooms).length : 0;
+        const subtitle = roomCount > 0 ? `${roomCount} vani` : 'Nessun vano';
+        return `
+            <div class="cell pert-item" data-pert-index="${index}">
+                <div class="cell-icon">${completed}</div>
+                <div class="cell-body">
+                    <div class="cell-title">${esc(pert.type || 'Pertinenza')}</div>
+                    <div class="cell-subtitle">${esc(subtitle)}</div>
+                </div>
+                <span class="cell-chevron">&#8250;</span>
+            </div>
+        `;
+    },
+
+    // ========== WIZARD HEADER ==========
+
+    /**
+     * Header wizard con titolo elemento e step
+     */
+    wizardHeader(elementLabel, stepInfo) {
+        return `
+            <div class="wizard-header">
+                <div class="wizard-element">${UI._escapeHtml(elementLabel)}</div>
+                ${stepInfo ? `<div class="wizard-step">${UI._escapeHtml(stepInfo)}</div>` : ''}
+            </div>
+        `;
+    },
+
+    /**
+     * Preview box (per anteprima testo verbale/cappello/chiusura)
+     */
+    previewBox(text, options = {}) {
+        const maxHeight = options.maxHeight || '300px';
+        return `
+            <div class="preview-box" style="max-height: ${maxHeight}; overflow-y: auto;">
+                <pre class="preview-text">${UI._escapeHtml(text)}</pre>
+            </div>
+        `;
+    },
+
+    /**
+     * Phase tabs (per navigazione Step 1/2/3)
+     */
+    phaseTabs(currentPhase) {
+        const phases = [
+            { num: 1, label: 'Anagrafica' },
+            { num: 2, label: 'Sopralluogo' },
+            { num: 3, label: 'Revisione' }
+        ];
+        const tabs = phases.map(p => {
+            const active = p.num === currentPhase ? ' active' : '';
+            const done = p.num < currentPhase ? ' done' : '';
+            return `<div class="phase-tab${active}${done}" data-phase="${p.num}">${p.num}. ${p.label}</div>`;
+        }).join('');
+        return `<div class="phase-tabs">${tabs}</div>`;
+    },
+
+    // ========== RENDER TO CONTENT ==========
+
+    /**
+     * Render HTML nel content area principale
+     */
+    render(html) {
+        const content = document.getElementById('content');
+        if (content) content.innerHTML = html;
+    },
+
+    /**
+     * Append HTML al content area
+     */
+    append(html) {
+        const content = document.getElementById('content');
+        if (content) content.insertAdjacentHTML('beforeend', html);
     }
-
-    // ===== OBSERVATION ITEM =====
-    function obsItem(number, text, onDelete) {
-        const li = document.createElement('li');
-        li.className = 'obs-item';
-        li.innerHTML = `<div class="obs-number">${number}</div><div class="obs-text">${_esc(text)}</div>`;
-        if (onDelete) {
-            const del = document.createElement('button');
-            del.className = 'btn btn-sm btn-danger';
-            del.textContent = 'X';
-            del.addEventListener('click', (e) => { e.stopPropagation(); onDelete(); });
-            li.appendChild(del);
-        }
-        return li;
-    }
-
-    // ===== ESCAPE HTML =====
-    function _esc(str) {
-        if (!str) return '';
-        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    return {
-        btn, buttonGrid, card, sectionHeader, formGroup,
-        roomCard, badge, emptyState, previewBlock,
-        reviewSection, toggle, obsItem, esc: _esc
-    };
-
-})();
+};

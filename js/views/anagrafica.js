@@ -1,244 +1,382 @@
-/* ============================================================
- * anagrafica.js — Schermata unica figure presenti + cappello
- * Flusso: schermata unificata → cappello → step 2
- * ============================================================ */
+/**
+ * anagrafica.js - Fase 1b: Proprietario, figure presenti, RM toggle, Cappello
+ * Flusso: Proprietario -> RM Presente -> Figure Presenti -> Cappello Preview -> Procedi
+ * PC: "Amministratore/Delegato" al posto di "Amministratore"
+ */
+const AnagraficaView = {
+    sopId: null,
+    _subStep: 'owner', // owner | rm_toggle | figures | cappello
 
-'use strict';
+    async render(container, params) {
+        this.sopId = params[0];
+        if (!this.sopId) { App.navigate('home', true); return; }
 
-const AnagraficaView = (() => {
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (!sop) { App.navigate('home', true); return; }
 
-    let _sop = null;
-    let _subStep = 'main'; // main | cappello | cappello_edit
-    let _rmPresente = true;
+        UI.setTitle('Anagrafica');
+        UI.showBack(true, () => App.navigate(`setup/${this.sopId}`));
 
-    async function render(container, params) {
-        _sop = await DB.getSopralluogo(params.id);
-        if (!_sop) { App.toast('Sopralluogo non trovato'); return; }
-        _rmPresente = _sop.rm_presente !== false;
-        _subStep = (params && params.sub) || 'main';
-        _render(container);
-    }
+        this._subStep = 'owner';
+        this._renderOwnerStep(container, sop);
+    },
 
-    function _render(container) {
-        container.innerHTML = '';
-        switch (_subStep) {
-            case 'main': _renderMain(container); break;
-            case 'cappello': _renderCappello(container); break;
-            case 'cappello_edit': _renderCappelloEdit(container); break;
-        }
-    }
+    // ========== STEP 1: PROPRIETARIO ==========
 
-    // ===== SCHERMATA UNIFICATA =====
-    function _renderMain(container) {
-        container.appendChild(UI.sectionHeader('Proprietario'));
+    _renderOwnerStep(container, sop) {
+        const isPC = CONFIG.isPartiComuni(sop);
+        const esc = UI._escapeHtml;
 
-        // Tipo proprietario (Persona / Societa)
-        const ownerType = (_sop.owner && typeof _sop.owner === 'object') ? _sop.owner.type : 'persona';
-        container.appendChild(UI.toggle('Tipo', [
-            { label: 'Persona', value: 'persona' },
-            { label: 'Societa', value: 'societa' }
-        ], ownerType, (val) => {
-            const nameInput = container.querySelector('#owner-name');
-            const companyBlock = container.querySelector('#company-block');
-            if (val === 'societa') {
-                if (nameInput) nameInput.placeholder = 'Ragione Sociale';
-                if (companyBlock) companyBlock.classList.remove('hidden');
-            } else {
-                if (nameInput) nameInput.placeholder = 'Nome e Cognome';
-                if (companyBlock) companyBlock.classList.add('hidden');
-            }
-        }));
+        let html = '';
 
-        // Nome
-        const ownerName = (_sop.owner && typeof _sop.owner === 'object') ?
-            (_sop.owner.name || '') : (_sop.owner || '');
-        const { group: nameGrp, input: nameInput } = UI.formGroup(null, 'text', ownerName,
-            ownerType === 'societa' ? 'Ragione Sociale' : 'Nome e Cognome');
-        nameInput.id = 'owner-name';
-        container.appendChild(nameGrp);
+        // Riepilogo fabbricato
+        html += UI.infoCard([
+            { label: 'Codice', value: sop.building_code || '' },
+            { label: 'Indirizzo', value: sop.building_address || '' },
+            { label: 'Unita\'', value: sop.manual_unit_type || sop.unit_name || sop.unit_type || '' },
+            { label: 'Piano', value: sop.floor || '' }
+        ]);
 
-        // Amministratore (solo societa)
-        const adminVal = (_sop.owner && typeof _sop.owner === 'object') ? (_sop.owner.admin || '') : '';
-        const companyBlock = document.createElement('div');
-        companyBlock.id = 'company-block';
-        companyBlock.className = ownerType === 'societa' ? '' : 'hidden';
-        const { group: adminGrp, input: adminInput } = UI.formGroup('Amministratore', 'text', adminVal, 'Nome amministratore');
-        adminInput.id = 'owner-admin';
-        companyBlock.appendChild(adminGrp);
-        container.appendChild(companyBlock);
+        // Tipo proprietario
+        const ownerType = sop.owner?.type || '';
+        html += UI.section('PROPRIETARIO', `
+            <div style="padding: 0 16px; margin-bottom: 8px;">
+                <div class="btn-grid">
+                    <button class="btn-choice${ownerType === 'persona' ? ' selected' : ''}" data-owner-type="persona">Persona</button>
+                    <button class="btn-choice${ownerType === 'societa' ? ' selected' : ''}" data-owner-type="societa">Societa'</button>
+                </div>
+            </div>
+            <div id="owner-fields"></div>
+        `);
 
-        // --- RM Presente ---
-        container.appendChild(UI.sectionHeader('Roma Metropolitane'));
-        const rmToggle = UI.toggle('Presente', [
-            { label: 'Si', value: true },
-            { label: 'No', value: false }
-        ], _rmPresente, (val) => {
-            _rmPresente = val;
-            const rmField = container.querySelector('#rm-field');
-            if (rmField) rmField.classList.toggle('hidden', !val);
-        });
-        container.appendChild(rmToggle);
+        // Bottone avanti
+        html += `<div style="padding: 16px;">
+            <button class="btn btn-primary" id="btn-next-anag">Avanti</button>
+        </div>`;
+        html += '<div style="height:32px;"></div>';
 
-        const rmField = document.createElement('div');
-        rmField.id = 'rm-field';
-        rmField.className = _rmPresente ? '' : 'hidden';
-        const { group: rmGrp, input: rmInput } = UI.formGroup(null, 'text', _sop.attendees_rm || '', 'Nome RM');
-        rmInput.id = 'rm-input';
-        rmField.appendChild(rmGrp);
-        container.appendChild(rmField);
+        container.innerHTML = html;
 
-        // --- Tecnico Metro C ---
-        container.appendChild(UI.sectionHeader('Tecnico Metro C'));
-        const { group: techGrp, input: techInput } = UI.formGroup(null, 'text', _sop.attendees_metro_tech || '', 'Nome Tecnico');
-        techInput.id = 'tech-input';
-        container.appendChild(techGrp);
+        // Render owner fields
+        this._renderOwnerFields(sop);
 
-        // --- Collaboratori ---
-        container.appendChild(UI.sectionHeader('Collaboratori'));
-        const collContainer = document.createElement('div');
-        collContainer.id = 'coll-container';
-        const collabs = _sop.attendees_metro_coll || [];
-        if (Array.isArray(collabs)) {
-            collabs.forEach((c, i) => {
-                collContainer.appendChild(_collRow(i, c));
+        // Bind tipo proprietario
+        container.querySelectorAll('[data-owner-type]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                container.querySelectorAll('[data-owner-type]').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                const type = btn.dataset.ownerType;
+                await Events.dispatch('set_anagrafica', this.sopId, {
+                    owner: { type, name: '', company_name: '', company_admin: '' }
+                });
+                const updated = await DB.getSopralluogo(this.sopId);
+                this._renderOwnerFields(updated);
             });
+        });
+
+        // Avanti -> RM toggle
+        document.getElementById('btn-next-anag').addEventListener('click', async () => {
+            await this._saveOwnerFields(sop);
+            const updated = await DB.getSopralluogo(this.sopId);
+            this._subStep = 'rm_toggle';
+            this._renderRMToggle(container, updated);
+        });
+    },
+
+    _renderOwnerFields(sop) {
+        const el = document.getElementById('owner-fields');
+        if (!el) return;
+        const type = sop.owner?.type || '';
+        const isPC = CONFIG.isPartiComuni(sop);
+
+        let html = '<div style="padding: 0 16px;">';
+        if (type === 'persona') {
+            html += UI.formInput({ label: 'Nome e Cognome', placeholder: 'Es. Mario Rossi', id: 'field-owner-name', value: sop.owner?.name || '' });
+        } else if (type === 'societa') {
+            html += UI.formInput({ label: 'Ragione Sociale', placeholder: 'Es. Immobiliare SRL', id: 'field-company-name', value: sop.owner?.company_name || '' });
+            const adminLabel = isPC ? 'Amministratore/Delegato' : 'Amministratore della societa\'';
+            html += UI.formInput({ label: adminLabel, placeholder: 'Nome', id: 'field-company-admin', value: sop.owner?.company_admin || '' });
         }
-        container.appendChild(collContainer);
+        html += '</div>';
+        el.innerHTML = type ? html : '';
+    },
 
-        container.appendChild(UI.btn('+ Aggiungi Collaboratore', 'btn-outline btn-block btn-sm mt-8', () => {
-            const cc = document.getElementById('coll-container');
-            const idx = cc.querySelectorAll('.coll-row').length;
-            cc.appendChild(_collRow(idx, ''));
-        }));
+    async _saveOwnerFields(sop) {
+        const owner = { type: sop.owner?.type || 'persona' };
+        const nameEl = document.getElementById('field-owner-name');
+        const companyEl = document.getElementById('field-company-name');
+        const adminEl = document.getElementById('field-company-admin');
 
-        // --- Avanti ---
-        container.appendChild(UI.btn('Avanti', 'btn-primary btn-block btn-lg mt-16', () => _saveAll(container)));
-    }
+        if (nameEl) owner.name = nameEl.value.trim();
+        if (companyEl) owner.company_name = companyEl.value.trim();
+        if (adminEl) owner.company_admin = adminEl.value.trim();
 
-    function _collRow(index, value) {
-        const row = document.createElement('div');
-        row.className = 'coll-row';
-        row.innerHTML = `
-            <input type="text" class="form-input coll-input" value="${UI.esc(value || '')}" placeholder="Collaboratore ${index + 1}">
-            <button class="btn-remove" aria-label="Rimuovi">×</button>
+        await Events.dispatch('set_anagrafica', this.sopId, { owner });
+    },
+
+    // ========== STEP 2: RM PRESENTE ==========
+
+    _renderRMToggle(container, sop) {
+        UI.setTitle('Roma Metropolitane');
+        let html = '';
+
+        html += `
+            <div class="empty-state">
+                <div class="empty-state-icon">🏛</div>
+                <div class="empty-state-title">Roma Metropolitane e' presente?</div>
+                <div class="empty-state-text">Indica se un rappresentante di Roma Metropolitane e' presente al sopralluogo</div>
+            </div>
+            <div style="padding: 0 16px; display: flex; gap: 8px;">
+                <button class="btn btn-primary" id="btn-rm-yes" style="flex:1;">Si'</button>
+                <button class="btn btn-secondary" id="btn-rm-no" style="flex:1;">No</button>
+            </div>
         `;
-        row.querySelector('.btn-remove').addEventListener('click', () => {
-            row.remove();
-            _reindexCollaborators();
+
+        container.innerHTML = html;
+
+        document.getElementById('btn-rm-yes').addEventListener('click', async () => {
+            await Events.dispatch('set_rm_presente', this.sopId, { presente: true });
+            const updated = await DB.getSopralluogo(this.sopId);
+            this._subStep = 'figures';
+            this._renderFigures(container, updated);
         });
-        return row;
-    }
 
-    function _reindexCollaborators() {
-        const rows = document.querySelectorAll('#coll-container .coll-row');
-        rows.forEach((row, i) => {
-            const input = row.querySelector('.coll-input');
-            if (input) input.placeholder = `Collaboratore ${i + 1}`;
+        document.getElementById('btn-rm-no').addEventListener('click', async () => {
+            await Events.dispatch('set_rm_presente', this.sopId, { presente: false });
+            const updated = await DB.getSopralluogo(this.sopId);
+            this._subStep = 'figures';
+            this._renderFigures(container, updated);
         });
-    }
+    },
 
-    async function _saveAll(container) {
-        // Raccogliere TUTTI i campi dal DOM
-        const nameInput = container.querySelector('#owner-name');
-        const adminInput = container.querySelector('#owner-admin');
-        const rmInput = container.querySelector('#rm-input');
-        const techInput = container.querySelector('#tech-input');
-        const typeToggle = container.querySelector('.toggle-btns .active');
+    // ========== STEP 3: FIGURE PRESENTI ==========
 
-        const ownerType = typeToggle ? (typeToggle.textContent === 'Societa' ? 'societa' : 'persona') : 'persona';
+    _renderFigures(container, sop) {
+        UI.setTitle('Figure Presenti');
+        const isPC = CONFIG.isPartiComuni(sop);
 
-        _sop.owner = {
-            type: ownerType,
-            name: nameInput ? nameInput.value.trim() : '',
-            admin: adminInput ? adminInput.value.trim() : ''
-        };
-
-        _sop.rm_presente = _rmPresente;
-        _sop.attendees_rm = rmInput ? rmInput.value.trim() : '';
-        _sop.attendees_metro_tech = techInput ? techInput.value.trim() : '';
+        let html = '';
+        html += UI.section('TECNICO METRO C', `
+            <div style="padding: 0 16px;">
+                ${UI.formInput({ label: 'Tecnico Metro C (Societa\')', placeholder: 'Es. Mario Rossi (ABC Srl)', id: 'field-metro-tech', value: sop.attendees?.metro_tech || '' }).trim()}
+            </div>
+        `);
 
         // Collaboratori
-        const collInputs = container.querySelectorAll('.coll-input');
-        _sop.attendees_metro_coll = Array.from(collInputs)
-            .map(i => i.value.trim())
-            .filter(v => v);
+        const colls = Array.isArray(sop.attendees?.metro_coll) ? sop.attendees.metro_coll : [];
+        let collHtml = '';
+        for (let i = 0; i < colls.length; i++) {
+            collHtml += `<div style="display:flex; gap:8px; align-items:center; padding: 4px 16px;">
+                <input class="form-input collaborator-input" type="text" data-coll-index="${i}" value="${UI._escapeHtml(colls[i])}" placeholder="Collaboratore ${i + 1}">
+                <button class="btn-choice coll-remove" data-coll-index="${i}" style="color:var(--destructive); min-width:40px;">x</button>
+            </div>`;
+        }
+        html += UI.section('COLLABORATORI METRO C', `
+            <div id="coll-list">${collHtml}</div>
+            <div style="padding: 8px 16px;">
+                <button class="btn btn-outline" id="btn-add-coll" style="width:100%;">+ Aggiungi Collaboratore</button>
+            </div>
+        `);
 
-        // Cattura start_time se non presente
-        if (!_sop.start_time) _sop.start_time = Date.now();
-
-        await DB.saveSopralluogo(_sop);
-
-        // Vai al cappello
-        _subStep = 'cappello';
-        _render(container);
-    }
-
-    // ===== CAPPELLO =====
-    function _renderCappello(container) {
-        container.appendChild(UI.sectionHeader('Anteprima Testo Introduttivo'));
-        const text = _sop.custom_cappello || _generateCappello();
-        container.appendChild(UI.previewBlock(text));
-
-        container.appendChild(UI.btn('Conferma', 'btn-primary btn-block mt-16', async () => {
-            if (!_sop.custom_cappello) _sop.custom_cappello = null; // auto
-            _sop.phase = Config.PHASES.SOPRALLUOGO;
-            await DB.saveSopralluogo(_sop);
-            App.navigate('rooms', { id: _sop.id });
-        }));
-
-        container.appendChild(UI.btn('Modifica', 'btn-outline btn-block mt-8', () => {
-            _subStep = 'cappello_edit';
-            _render(container);
-        }));
-
-        container.appendChild(UI.btn('Salta', 'btn-secondary btn-block mt-8', async () => {
-            _sop.custom_cappello = null;
-            _sop.phase = Config.PHASES.SOPRALLUOGO;
-            await DB.saveSopralluogo(_sop);
-            App.navigate('rooms', { id: _sop.id });
-        }));
-    }
-
-    function _renderCappelloEdit(container) {
-        container.appendChild(UI.sectionHeader('Modifica Testo Introduttivo'));
-        const text = _sop.custom_cappello || _generateCappello();
-        const { group, input } = UI.formGroup(null, 'textarea', text, '');
-        container.appendChild(group);
-
-        container.appendChild(UI.btn('Salva', 'btn-primary btn-block mt-16', async () => {
-            _sop.custom_cappello = input.value.trim() || null;
-            await DB.saveSopralluogo(_sop);
-            _subStep = 'cappello';
-            _render(container);
-        }));
-    }
-
-    function _generateCappello() {
-        const d = _sop.start_time ? new Date(_sop.start_time) : new Date();
-        const dateStr = d.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
-        const timeStr = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-
-        const lines = [];
-        lines.push(`In data ${dateStr} alle ore ${timeStr}, presso l'immobile sito in ${_sop.building_address || '___'}, si procede al sopralluogo dell'unita immobiliare ${_sop.unit_type || ''} ${_sop.unit_name || ''}.`);
-
-        if (_sop.owner && _sop.owner.name) {
-            const ownerStr = _sop.owner.type === 'societa' ?
-                `${_sop.owner.name}${_sop.owner.admin ? ', nella persona di ' + _sop.owner.admin : ''}` :
-                _sop.owner.name;
-            lines.push(`Proprietario: ${ownerStr}.`);
+        // RM (solo se presente)
+        if (sop.rm_presente) {
+            html += UI.section('ROMA METROPOLITANE', `
+                <div style="padding: 0 16px;">
+                    ${UI.formInput({ label: 'Rappresentante RM', placeholder: 'Nome rappresentante', id: 'field-rm', value: sop.attendees?.rm || '' }).trim()}
+                </div>
+            `);
         }
 
-        const presenti = [];
-        if (_sop.attendees_metro_tech) presenti.push(`Tecnico Metro C: ${_sop.attendees_metro_tech}`);
-        if (_sop.attendees_metro_coll && _sop.attendees_metro_coll.length > 0) {
-            presenti.push(`Collaboratori: ${_sop.attendees_metro_coll.join(', ')}`);
+        // Proprietario/Amministratore presente
+        const adminLabel = isPC ? 'Amministratore/Delegato' : 'Proprietario/Occupante';
+        html += UI.section(adminLabel.toUpperCase(), `
+            <div style="padding: 0 16px;">
+                ${UI.formInput({ label: adminLabel, placeholder: 'Nome (se presente)', id: 'field-admin-present', value: sop.attendees?.admin_present || '' }).trim()}
+            </div>
+        `);
+
+        html += `<div style="padding: 16px;">
+            <button class="btn btn-primary" id="btn-next-figures">Avanti</button>
+        </div>`;
+        html += '<div style="height:32px;"></div>';
+
+        container.innerHTML = html;
+
+        // Add collaborator
+        document.getElementById('btn-add-coll').addEventListener('click', async () => {
+            const currentColls = this._getCollaborators();
+            currentColls.push('');
+            await Events.dispatch('set_anagrafica', this.sopId, { attendees: { metro_coll: currentColls } });
+            const updated = await DB.getSopralluogo(this.sopId);
+            this._renderFigures(container, updated);
+        });
+
+        // Remove collaborator
+        container.querySelectorAll('.coll-remove').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const idx = parseInt(btn.dataset.collIndex);
+                const currentColls = this._getCollaborators();
+                currentColls.splice(idx, 1);
+                await Events.dispatch('set_anagrafica', this.sopId, { attendees: { metro_coll: currentColls } });
+                const updated = await DB.getSopralluogo(this.sopId);
+                this._renderFigures(container, updated);
+            });
+        });
+
+        // Next -> cappello
+        document.getElementById('btn-next-figures').addEventListener('click', async () => {
+            const attendees = {
+                metro_tech: document.getElementById('field-metro-tech')?.value.trim() || '',
+                metro_coll: this._getCollaborators(),
+                rm: document.getElementById('field-rm')?.value.trim() || '',
+                admin_present: document.getElementById('field-admin-present')?.value.trim() || ''
+            };
+            await Events.dispatch('set_anagrafica', this.sopId, { attendees });
+
+            const updated = await DB.getSopralluogo(this.sopId);
+            this._subStep = 'cappello';
+            this._renderCappello(container, updated);
+        });
+    },
+
+    // ========== STEP 4: CAPPELLO PREVIEW ==========
+
+    _renderCappello(container, sop) {
+        UI.setTitle('Testo Introduttivo');
+
+        // Genera cappello (auto o custom)
+        let cappelloText = sop.custom_cappello;
+        if (!cappelloText && typeof Formatters !== 'undefined') {
+            cappelloText = Formatters.generateCappelloText(sop);
         }
-        if (_sop.rm_presente && _sop.attendees_rm) presenti.push(`Roma Metropolitane: ${_sop.attendees_rm}`);
-        if (presenti.length > 0) lines.push(`Figure presenti: ${presenti.join('; ')}.`);
+        if (!cappelloText) cappelloText = this._fallbackCappello(sop);
 
-        return lines.join('\n\n');
+        let html = '';
+        html += `<div style="padding: 8px 16px; color: var(--hint); font-size: 13px;">
+            Anteprima del testo introduttivo del verbale. Puoi modificarlo o accettare quello generato automaticamente.
+        </div>`;
+
+        html += `<div style="padding: 0 16px;">
+            <div class="preview-box" style="max-height: 300px; overflow-y: auto;">
+                <pre class="preview-text" id="cappello-preview">${UI._escapeHtml(cappelloText)}</pre>
+            </div>
+        </div>`;
+
+        html += `<div style="padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+            <button class="btn btn-primary" id="btn-cappello-ok">Conferma e Procedi</button>
+            <button class="btn btn-outline" id="btn-cappello-edit">Modifica Testo</button>
+            <button class="btn btn-secondary" id="btn-cappello-skip">Salta (usa auto-generato)</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        // Conferma
+        document.getElementById('btn-cappello-ok').addEventListener('click', async () => {
+            if (sop.custom_cappello !== cappelloText) {
+                await Events.dispatch('set_cappello', this.sopId, { text: cappelloText });
+            } else {
+                // Imposta start_time se non gia' set
+                await Events.dispatch('set_cappello', this.sopId, { text: sop.custom_cappello });
+            }
+            await this._finalize(sop);
+        });
+
+        // Modifica
+        document.getElementById('btn-cappello-edit').addEventListener('click', () => {
+            this._renderCappelloEdit(container, sop, cappelloText);
+        });
+
+        // Salta
+        document.getElementById('btn-cappello-skip').addEventListener('click', async () => {
+            await Events.dispatch('set_cappello', this.sopId, { text: null }); // null = auto
+            await this._finalize(sop);
+        });
+    },
+
+    _renderCappelloEdit(container, sop, currentText) {
+        UI.setTitle('Modifica Testo');
+        let html = '';
+
+        html += `<div style="padding: 8px 16px; color: var(--hint); font-size: 13px;">
+            Le modifiche riguardano solo il testo introduttivo. Le firme restano invariate.
+        </div>`;
+
+        html += `<div style="padding: 0 16px;">
+            <textarea class="form-input form-textarea" id="cappello-edit" rows="10" style="font-family: monospace; font-size: 13px;">${UI._escapeHtml(currentText)}</textarea>
+        </div>`;
+
+        html += `<div style="padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+            <button class="btn btn-primary" id="btn-save-cappello">Salva e Procedi</button>
+            <button class="btn btn-secondary" id="btn-cancel-cappello">Annulla</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        document.getElementById('btn-save-cappello').addEventListener('click', async () => {
+            const text = document.getElementById('cappello-edit').value.trim();
+            await Events.dispatch('set_cappello', this.sopId, { text: text || null });
+            await this._finalize(sop);
+        });
+
+        document.getElementById('btn-cancel-cappello').addEventListener('click', () => {
+            const updated = DB.getSopralluogo(this.sopId).then(s => {
+                this._renderCappello(container, s);
+            });
+        });
+    },
+
+    // ========== FINALIZZA ==========
+
+    async _finalize(sop) {
+        // Genera unit_name se necessario
+        if (typeof SetupView !== 'undefined' && SetupView._buildUnitName) {
+            await SetupView._buildUnitName(await DB.getSopralluogo(this.sopId));
+        }
+
+        await Events.dispatch('complete_phase', this.sopId, { phase: 2 });
+        UI.toast('Anagrafica completata');
+        App.navigate(`rooms/${this.sopId}`);
+    },
+
+    // ========== HELPERS ==========
+
+    _getCollaborators() {
+        const inputs = document.querySelectorAll('.collaborator-input');
+        const colls = [];
+        inputs.forEach(input => {
+            const val = input.value.trim();
+            if (val) colls.push(val);
+        });
+        return colls;
+    },
+
+    _fallbackCappello(sop) {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeStr = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+        let text = `In data ${dateStr} alle ore ${timeStr} si accede presso il fabbricato sito in ${sop.building_address || '___'} `;
+        text += `per effettuare il testimoniale di ${sop.manual_unit_type || sop.unit_name || sop.unit_type || '___'}.\n\n`;
+        text += `Sono presenti:\n`;
+
+        if (sop.attendees?.metro_tech) text += `- Tecnico Metro C: ${sop.attendees.metro_tech}\n`;
+        if (sop.attendees?.metro_coll?.length > 0) {
+            text += `- Collaboratori: ${sop.attendees.metro_coll.join(', ')}\n`;
+        }
+        if (sop.rm_presente && sop.attendees?.rm) text += `- Roma Metropolitane: ${sop.attendees.rm}\n`;
+        if (sop.attendees?.admin_present) {
+            const isPC = CONFIG.isPartiComuni(sop);
+            const label = isPC ? 'Amministratore/Delegato' : 'Proprietario';
+            text += `- ${label}: ${sop.attendees.admin_present}\n`;
+        }
+
+        if (sop.owner?.type === 'persona' && sop.owner?.name) {
+            text += `\nProprietario: ${sop.owner.name}`;
+        } else if (sop.owner?.type === 'societa' && sop.owner?.company_name) {
+            text += `\nSocieta': ${sop.owner.company_name}`;
+            if (sop.owner.company_admin) text += ` (${sop.owner.company_admin})`;
+        }
+
+        return text;
     }
-
-    return { render };
-
-})();
+};

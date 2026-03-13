@@ -1,367 +1,473 @@
-/* ============================================================
- * review.js — Riepilogo finale (Step 3)
- * Mostra TUTTE le sezioni del verbale nell'ordine del DOCX.
- * Niente bottone "Anteprima Verbale" — la schermata E' il verbale.
- * ============================================================ */
+/**
+ * review.js - Fase 3: Riepilogo, chiusura, firme, export JSON, DOCX
+ * Usa Formatters.js come source of truth per testo
+ * Supporta: cappello, chiusura, pertinenze, allontana events, RM toggle
+ */
+const ReviewView = {
+    sopId: null,
 
-'use strict';
+    async render(container, params) {
+        this.sopId = params[0];
+        if (!this.sopId) { App.navigate('home', true); return; }
 
-const ReviewView = (() => {
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (!sop) { App.navigate('home', true); return; }
 
-    let _sop = null;
-    let _editSection = null;
+        UI.setTitle('Riepilogo');
+        UI.showBack(true, () => App.navigate(`rooms/${this.sopId}`));
 
-    async function render(container, params) {
-        _sop = await DB.getSopralluogo(params.id);
-        if (!_sop) { App.toast('Sopralluogo non trovato'); return; }
-        _editSection = (params && params.edit) || null;
+        const esc = UI._escapeHtml;
+        const rooms = sop.rooms || {};
+        const roomNames = Object.keys(rooms);
 
-        if (_editSection) {
-            _renderEdit(container);
-        } else {
-            await _renderMain(container);
-        }
-    }
+        let html = '';
 
-    async function _renderMain(container) {
-        container.innerHTML = '';
+        // Info card
+        html += UI.infoCard([
+            { label: 'Codice', value: sop.building_code || '' },
+            { label: 'Indirizzo', value: sop.building_address || '' },
+            { label: 'Unita\'', value: sop.manual_unit_type || sop.unit_name || sop.unit_type || '' },
+            { label: 'Piano', value: sop.floor || '' }
+        ]);
 
-        // 1. INFO CARD
-        const info = UI.card(
-            `${_sop.building_code} — ${_sop.unit_type || ''}`,
-            `Piano: ${_sop.floor || '-'} | Sub: ${_sop.subalterno || '-'} | Indirizzo: ${_sop.building_address || '-'}`
-        );
-        container.appendChild(info);
-
-        // 2. STATISTICHE
-        const stats = _calcStats();
-        const statsCard = UI.card('Statistiche');
-        statsCard.innerHTML += `
-            <p>Vani: <strong>${stats.roomCount}</strong> | Osservazioni: <strong>${stats.obsCount}</strong> | Foto: <strong>${stats.photoCount}</strong></p>
-            ${stats.pertCount > 0 ? `<p>Pertinenze: <strong>${stats.pertCount}</strong></p>` : ''}
-        `;
-        container.appendChild(statsCard);
-
-        // 3. WARNINGS
-        const warnings = _getWarnings();
-        if (warnings.length > 0) {
-            const warnCard = UI.card('Avvisi');
-            warnings.forEach(w => {
-                const p = document.createElement('p');
-                p.innerHTML = `⚠️ ${UI.esc(w)}`;
-                p.style.color = 'var(--warning)';
-                warnCard.appendChild(p);
-            });
-            container.appendChild(warnCard);
-        }
-
-        // 4. CAPPELLO
-        container.appendChild(UI.reviewSection(
-            'Testo Introduttivo (Cappello)',
-            Formatters.generateCappelloText(_sop),
-            () => { _editSection = 'cappello'; _renderEdit(container); }
-        ));
-
-        // 5. VANI (testo generato per ogni vano)
-        container.appendChild(UI.sectionHeader('Vani'));
-        const roomNames = Object.keys(_sop.rooms);
+        // Statistiche
+        let totalObs = 0, totalPhotos = 0;
         for (const name of roomNames) {
-            const room = _sop.rooms[name];
-            const status = _sop.room_status[name];
-            const isSpecial = status && status !== 'accessible';
+            totalObs += (rooms[name].observations || []).length;
+            totalPhotos += (rooms[name].photos || []).length;
+        }
+        html += UI.section('STATISTICHE', `
+            <div class="cell" style="cursor:default;"><div class="cell-body">
+                <div class="cell-title">Vani: ${roomNames.length} | Oss: ${totalObs} | Foto: ${totalPhotos}</div>
+                <div class="cell-subtitle">Pertinenze: ${(sop.pertinenze || []).length}</div>
+            </div></div>
+        `);
 
-            let roomText;
+        // Preview per ogni vano
+        for (const roomName of roomNames) {
+            const room = rooms[roomName];
+            const observations = room.observations || [];
+
+            let roomHtml = `<div class="cell" style="cursor:default;"><div class="cell-body">
+                <div class="cell-title">${esc(roomName)} ${UI.statusBadge(room.status)}</div>
+                <div class="cell-subtitle">Soffitto: ${esc(room.finishes || '-')} | Oss: ${observations.length}</div>
+            </div></div>`;
+            html += UI.section(esc(roomName).toUpperCase(), roomHtml);
+
             if (room.manual_text) {
-                roomText = room.manual_text;
-            } else if (isSpecial) {
-                const labels = {
-                    non_accessibile: 'NON ACCESSIBILE',
-                    non_valutabile: 'NON VALUTABILE',
-                    non_autorizzato: 'NON AUTORIZZATO'
-                };
-                roomText = labels[status] || status;
-                if (room.disclaimer_note) roomText += ` — ${room.disclaimer_note}`;
-            } else {
-                roomText = Formatters.generateRoomText(room);
+                html += `<div class="preview-box"><pre class="preview-text">${esc(room.manual_text)}</pre></div>`;
+            } else if (observations.length > 0) {
+                let text = '';
+                if (typeof Formatters !== 'undefined') {
+                    text = Formatters.generateRoomText(observations);
+                } else {
+                    text = observations.map(o => o.phenomenon || '').join('; ');
+                }
+                html += `<div class="preview-box"><pre class="preview-text">${esc(text)}</pre></div>`;
             }
 
-            const header = `${name}`;
-            const finishes = room.room_finishes ? `Finiture: ${room.room_finishes}` : '';
-
-            const sec = document.createElement('div');
-            sec.className = 'review-section';
-
-            const hdr = document.createElement('div');
-            hdr.className = 'review-section-header';
-            const title = document.createElement('div');
-            title.className = 'review-section-title';
-            title.textContent = header;
-            hdr.appendChild(title);
-
-            const editBtn = document.createElement('button');
-            editBtn.className = 'review-edit-btn';
-            editBtn.textContent = 'Modifica Testo';
-            editBtn.addEventListener('click', () => {
-                _editSection = `room:${name}`;
-                _renderEdit(container);
-            });
-            hdr.appendChild(editBtn);
-            sec.appendChild(hdr);
-
-            if (finishes) {
-                const f = document.createElement('p');
-                f.className = 'text-sm text-muted';
-                f.textContent = finishes;
-                sec.appendChild(f);
-            }
-
-            sec.appendChild(UI.previewBlock(roomText || '(nessuna osservazione)'));
-            container.appendChild(sec);
+            html += `<div style="padding: 4px 16px;">
+                <button class="btn btn-secondary" data-room-edit="${esc(roomName)}" style="font-size:13px;">Modifica Testo</button>
+            </div>`;
         }
 
-        // 6. PERTINENZE
-        if (_sop.pertinenze && _sop.pertinenze.length > 0) {
-            container.appendChild(UI.sectionHeader('Pertinenze'));
-            _sop.pertinenze.forEach((pert, idx) => {
-                const pertLabel = `${pert.type || ''} — Sub: ${pert.sub || '-'}`;
-                const pertRooms = pert.rooms || pert._room_data || {};
-                const roomKeys = Object.keys(pertRooms);
+        // Pertinenze preview
+        if (sop.pertinenze && sop.pertinenze.length > 0) {
+            let pertHtml = '';
+            for (let i = 0; i < sop.pertinenze.length; i++) {
+                const pert = sop.pertinenze[i];
+                const pertRoomCount = Object.keys(pert.rooms || {}).length;
+                pertHtml += UI.cell({
+                    icon: pert.completed ? '✅' : '⬜',
+                    title: pert.type,
+                    subtitle: `${pertRoomCount} vani`,
+                    dataId: `pert_${i}`,
+                    chevron: true
+                });
+            }
+            const orderLabel = sop.pert_order === 'pert_first' ? '📦 Pertinenze prima' : '🏠 Appartamento prima';
+            pertHtml += `<div style="padding: 8px 0; display:flex; gap:8px;">
+                <button class="btn btn-outline" id="btn-toggle-pert-order" style="flex:1; font-size:13px;">${orderLabel}</button>
+            </div>`;
+            html += UI.section('PERTINENZE', pertHtml);
+        }
 
-                container.appendChild(UI.card(pertLabel, `${roomKeys.length} vani`));
+        // Chiusura preview
+        html += UI.section('TESTO CONCLUSIVO', '');
+        let chiusuraText = sop.custom_chiusura;
+        if (!chiusuraText && typeof Formatters !== 'undefined') {
+            chiusuraText = Formatters.generateChiusuraText(sop);
+        }
+        if (!chiusuraText) chiusuraText = 'Il sopralluogo si conclude alle ore __.';
+        html += `<div class="preview-box"><pre class="preview-text" id="chiusura-text">${esc(chiusuraText)}</pre></div>`;
+        html += `<div style="padding: 4px 16px; display:flex; gap:8px;">
+            <button class="btn btn-outline" id="btn-edit-chiusura" style="flex:1; font-size:13px;">Modifica</button>
+            <button class="btn btn-secondary" id="btn-reset-chiusura" style="flex:1; font-size:13px;">Auto</button>
+        </div>`;
 
-                roomKeys.forEach(rn => {
-                    const pRoom = pertRooms[rn];
-                    const pText = pRoom.manual_text || Formatters.generateRoomText(pRoom);
-                    container.appendChild(UI.reviewSection(rn, pText || '(vuoto)'));
+        // Note globali
+        html += this._renderGlobalNotes(sop);
+
+        // Nota operatore
+        html += this._renderOperatorNote(sop);
+
+        // Firmatari
+        html += this._renderSigners(sop);
+
+        // Verbale preview completo
+        html += UI.section('ANTEPRIMA VERBALE COMPLETO', '');
+        let verbaleText = '';
+        if (typeof Formatters !== 'undefined') {
+            verbaleText = Formatters.generateVerbalePreview(sop);
+        } else {
+            verbaleText = 'Formatters non disponibile';
+        }
+        html += `<div class="preview-box" style="max-height:400px; overflow-y:auto;">
+            <pre class="preview-text">${esc(verbaleText)}</pre>
+        </div>`;
+
+        // Bottoni azione
+        html += `<div style="padding: 16px; display:flex; flex-direction:column; gap:8px;">
+            <button class="btn btn-primary" id="btn-generate-docx">📄 Genera Verbale DOCX</button>
+            <button class="btn btn-primary" id="btn-generate-allegato" style="background:var(--accent-secondary,#4a9d8f);">📷 Genera Allegato Foto DOCX</button>
+            <button class="btn btn-outline" id="btn-export-json">📥 Esporta JSON</button>
+            <button class="btn btn-secondary" id="btn-back-rooms">Torna ai Vani</button>
+            ${sop.completed ? '<button class="btn btn-outline" id="btn-reopen" style="margin-top:8px; border-color:var(--warning,#ffc107); color:var(--warning,#e6a800);">🔓 Riapri per Modifiche</button>' : ''}
+        </div><div style="height:32px;"></div>`;
+
+        container.innerHTML = html;
+        this._bindEvents(sop);
+    },
+
+    // ========== NOTE GLOBALI ==========
+
+    _renderGlobalNotes(sop) {
+        const notes = Array.isArray(sop.global_notes) ? sop.global_notes : [];
+        let html = `<div class="section"><div class="section-header">NOTE GLOBALI</div></div>`;
+
+        if (notes.length > 0) {
+            for (let i = 0; i < notes.length; i++) {
+                const note = notes[i];
+                const esc = UI._escapeHtml;
+                html += `<div class="obs-card" data-note-index="${i}">
+                    <div class="obs-card-element">${esc(note.type || 'Nota')}${note.room_name ? ' - ' + esc(note.room_name) : ''}</div>
+                    <div class="obs-card-text">${esc(note.text)}</div>
+                    <div class="obs-card-footer">
+                        <button class="obs-btn-delete" data-note-delete="${i}">🗑</button>
+                    </div>
+                </div>`;
+            }
+        } else {
+            html += `<div style="text-align:center; color:var(--hint); padding:12px;">Nessuna nota</div>`;
+        }
+
+        html += `<div style="padding: 8px 16px;"><button class="btn btn-outline" id="btn-add-note" style="width:100%;">+ Nota Globale</button></div>`;
+        return html;
+    },
+
+    // ========== NOTA OPERATORE ==========
+
+    _renderOperatorNote(sop) {
+        const esc = UI._escapeHtml;
+        const note = sop.operator_note || '';
+        let html = `<div class="section"><div class="section-header">NOTA OPERATORE</div></div>`;
+        if (note) {
+            html += `<div style="padding:4px 16px; font-size:13px; color:var(--text);">${esc(note)}</div>`;
+        } else {
+            html += `<div style="text-align:center; color:var(--hint); padding:12px;">Nessuna nota operatore</div>`;
+        }
+        html += `<div style="padding: 8px 16px; display:flex; gap:8px;">
+            <button class="btn btn-outline" id="btn-edit-op-note" style="flex:1;">✏️ ${note ? 'Modifica' : 'Aggiungi'}</button>
+            ${note ? '<button class="btn btn-secondary" id="btn-del-op-note" style="flex:0 0 auto;">🗑</button>' : ''}
+        </div>`;
+        return html;
+    },
+
+    // ========== FIRMATARI ==========
+
+    _renderSigners(sop) {
+        const signers = sop.signers || {};
+        const signerEnabled = sop.signer_enabled || { metro_tech: true, rm: true, metro_coll: true, proprietario: true };
+        const isPC = CONFIG.isPartiComuni(sop.unit_name || sop.unit_type);
+
+        let html = `<div class="section"><div class="section-header">FIRMATARI</div>
+            <div style="padding: 4px 16px; color: var(--hint); font-size: 12px;">Usa le checkbox per includere/escludere i firmatari dal verbale</div>
+            <div class="section-body" style="padding: 0 16px;">`;
+
+        html += this._signerRow('metro_tech', 'Metro C Tecnico', signers.metro_tech || '', signerEnabled.metro_tech !== false);
+
+        if (sop.rm_presente) {
+            html += this._signerRow('rm', 'Roma Metropolitane', signers.rm || '', signerEnabled.rm !== false);
+        }
+
+        html += this._signerRow('metro_coll', 'Collaboratore Metro C', signers.metro_coll || '', signerEnabled.metro_coll !== false);
+
+        const propLabel = isPC ? 'Amministratore/Delegato' : 'Proprietario/Delegato';
+        const showProp = !sop.proprietario_assente;
+        if (showProp) {
+            html += this._signerRow('proprietario', propLabel, signers.proprietario || '', signerEnabled.proprietario !== false);
+        }
+
+        html += `</div></div>`;
+        return html;
+    },
+
+    _signerRow(key, label, value, enabled) {
+        const checked = enabled ? 'checked' : '';
+        const disabled = enabled ? '' : 'disabled style="opacity:0.5;"';
+        return `<div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <input type="checkbox" id="signer-chk-${key}" data-signer-key="${key}" ${checked} style="width:20px; height:20px; flex-shrink:0;">
+            <div style="flex:1;" ${disabled}>
+                ${UI.formInput({ label, id: `signer-${key === 'proprietario' ? 'prop' : key === 'metro_coll' ? 'coll' : key}`, value, placeholder: 'Firma' }).trim()}
+            </div>
+        </div>`;
+    },
+
+    // ========== EVENTS ==========
+
+    _bindEvents(sop) {
+        // Edit room manual text
+        document.querySelectorAll('[data-room-edit]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._editRoomText(sop, btn.dataset.roomEdit);
+            });
+        });
+
+        // Edit chiusura
+        document.getElementById('btn-edit-chiusura')?.addEventListener('click', () => {
+            const current = document.getElementById('chiusura-text')?.textContent || '';
+            UI.promptInput('Modifica Chiusura', 'Testo conclusivo...', async (text) => {
+                await Events.dispatch('set_chiusura', this.sopId, { text });
+                UI.toast('Chiusura salvata');
+                const updated = await DB.getSopralluogo(this.sopId);
+                this.render(document.getElementById('app-content'), [this.sopId]);
+            }, { multiline: true, defaultValue: current });
+        });
+
+        // Reset chiusura
+        document.getElementById('btn-reset-chiusura')?.addEventListener('click', async () => {
+            await Events.dispatch('set_chiusura', this.sopId, { text: null });
+            UI.toast('Chiusura auto-generata');
+            const updated = await DB.getSopralluogo(this.sopId);
+            this.render(document.getElementById('app-content'), [this.sopId]);
+        });
+
+        // Add global note
+        document.getElementById('btn-add-note')?.addEventListener('click', () => {
+            this._addNoteModal();
+        });
+
+        // Toggle pert order
+        document.getElementById('btn-toggle-pert-order')?.addEventListener('click', async () => {
+            const newOrder = sop.pert_order === 'pert_first' ? 'main_first' : 'pert_first';
+            await Events.dispatch('set_pert_order', this.sopId, { order: newOrder });
+            UI.toast(newOrder === 'pert_first' ? 'Pertinenze prima nel verbale' : 'Appartamento prima nel verbale');
+            this.render(document.getElementById('app-content'), [this.sopId]);
+        });
+
+        // Edit operator note
+        document.getElementById('btn-edit-op-note')?.addEventListener('click', () => {
+            UI.promptInput('Nota Operatore', 'Testo della nota...', async (text) => {
+                await Events.dispatch('set_operator_note', this.sopId, { text });
+                UI.toast('Nota operatore salvata');
+                this.render(document.getElementById('app-content'), [this.sopId]);
+            }, { multiline: true, defaultValue: sop.operator_note || '' });
+        });
+
+        // Delete operator note
+        document.getElementById('btn-del-op-note')?.addEventListener('click', () => {
+            UI.confirmAction('Cancellare la nota operatore?', async () => {
+                await Events.dispatch('set_operator_note', this.sopId, { text: '' });
+                UI.toast('Nota operatore cancellata');
+                this.render(document.getElementById('app-content'), [this.sopId]);
+            });
+        });
+
+        // Delete note
+        document.querySelectorAll('[data-note-delete]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                UI.confirmAction('Eliminare nota?', async () => {
+                    await Events.dispatch('delete_global_note', this.sopId, { note_index: parseInt(btn.dataset.noteDelete) });
+                    UI.toast('Eliminata');
+                    const updated = await DB.getSopralluogo(this.sopId);
+                    this.render(document.getElementById('app-content'), [this.sopId]);
                 });
             });
-        }
-
-        // 7. INTERRUZIONI
-        if (_sop.allontana_events && _sop.allontana_events.length > 0) {
-            const evList = document.createElement('div');
-            _sop.allontana_events.forEach(ev => {
-                const p = document.createElement('p');
-                p.textContent = `${ev.type === 'allontana' ? 'Si Allontana' : 'Rientra'} alle ${ev.time}${ev.text ? ' — ' + ev.text : ''}`;
-                evList.appendChild(p);
-            });
-            container.appendChild(UI.reviewSection('Interruzioni', evList));
-        }
-
-        // 8. NOTE GLOBALI
-        if (_sop.global_notes && _sop.global_notes.length > 0) {
-            const notesText = _sop.global_notes.join('\n');
-            container.appendChild(UI.reviewSection('Note Globali', notesText, () => {
-                _editSection = 'global_notes';
-                _renderEdit(container);
-            }));
-        }
-
-        // 9. NOTA OPERATORE
-        container.appendChild(UI.reviewSection(
-            'Nota Operatore',
-            _sop.operator_note || '(nessuna nota)',
-            () => { _editSection = 'operator_note'; _renderEdit(container); }
-        ));
-
-        // 10. CHIUSURA
-        container.appendChild(UI.reviewSection(
-            'Testo di Chiusura',
-            Formatters.generateChiusuraText(_sop),
-            () => { _editSection = 'chiusura'; _renderEdit(container); }
-        ));
-
-        // 11. FIRMATARI
-        const signersEl = document.createElement('div');
-        const signers = [
-            { label: 'Tecnico Metro C', key: 'signer_metro_tech', value: _sop.signer_metro_tech },
-            { label: 'Roma Metropolitane', key: 'signer_rm', value: _sop.signer_rm },
-            { label: 'Collaboratore', key: 'signer_metro_coll', value: _sop.signer_metro_coll },
-            { label: 'Proprietario', key: 'signer_owner', value: _sop.signer_owner }
-        ];
-        signers.forEach(s => {
-            const p = document.createElement('p');
-            p.innerHTML = `<strong>${s.label}:</strong> ${UI.esc(s.value || '(non impostato)')}`;
-            signersEl.appendChild(p);
         });
-        container.appendChild(UI.reviewSection('Firmatari', signersEl, () => {
-            _editSection = 'signers';
-            _renderEdit(container);
-        }));
 
-        // 12. PLANIMETRIA
-        container.appendChild(UI.reviewSection('Planimetria', 'Sostituzione planimetria'));
-        container.appendChild(UI.btn('Sostituisci Planimetria', 'btn-outline btn-block btn-sm', async () => {
-            try {
-                const result = await Photos.captureFromCamera();
-                const filename = `PLANIMETRIA_sostituzione.jpg`;
-                await Photos.savePhoto(_sop.id, '_planimetria', 'planimetria', filename, result.blob, result.thumbnail);
-                App.toast('Planimetria sostituita!');
-            } catch (e) { App.toast('Errore foto'); }
-        }));
+        // Pertinenze click
+        document.querySelectorAll('[data-id^="pert_"]').forEach(cell => {
+            cell.addEventListener('click', async () => {
+                const idx = parseInt(cell.dataset.id.replace('pert_', ''));
+                await Events.dispatch('enter_pertinenza', this.sopId, { index: idx });
+                App.navigate(`rooms/${this.sopId}`);
+            });
+        });
 
-        // 13. EXPORT BUTTONS
-        container.appendChild(UI.sectionHeader('Export'));
-        const exportRow = document.createElement('div');
-        exportRow.className = 'flex flex-col gap-8';
-
-        exportRow.appendChild(UI.btn('Sincronizza e Genera DOCX', 'btn-primary btn-block btn-lg', async () => {
-            try {
-                App.toast('Sincronizzazione in corso...');
-                await Sync.syncSopralluogo(_sop);
-                App.toast('Sincronizzato! Il bot generera i documenti.');
-            } catch (e) {
-                App.toast('Errore sync: ' + e.message);
+        // Generate DOCX — prova server (report perfetto con template), fallback locale
+        document.getElementById('btn-generate-docx')?.addEventListener('click', async () => {
+            await this._saveSigners();
+            // Prima sincronizza i dati al server, poi genera lato server
+            if (typeof Sync !== 'undefined' && Sync._isAPIAvailable()) {
+                // Sync dati aggiornati al server prima di generare
+                const synced = await Sync.syncViaAPI(this.sopId);
+                if (synced) {
+                    await Sync.requestReport(this.sopId, 'verbale');
+                } else {
+                    UI.toast('Sync fallita. Provo generazione locale...');
+                    if (typeof VerbaleGenerator !== 'undefined') {
+                        await VerbaleGenerator.generate(this.sopId);
+                    }
+                }
+            } else if (typeof VerbaleGenerator !== 'undefined') {
+                const updated = await DB.getSopralluogo(this.sopId);
+                await VerbaleGenerator.generate(this.sopId);
+            } else {
+                UI.toast('Generatore DOCX non disponibile');
             }
-        }));
+        });
 
-        exportRow.appendChild(UI.btn('Esporta JSON (Backup)', 'btn-outline btn-block', () => {
-            Sync.exportJSON(_sop);
-            App.toast('JSON esportato!');
-        }));
+        // Generate Allegato Foto DOCX — stessa logica server > locale
+        document.getElementById('btn-generate-allegato')?.addEventListener('click', async () => {
+            await this._saveSigners();
+            if (typeof Sync !== 'undefined' && Sync._isAPIAvailable()) {
+                const synced = await Sync.syncViaAPI(this.sopId);
+                if (synced) {
+                    await Sync.requestReport(this.sopId, 'allegato');
+                } else {
+                    UI.toast('Sync fallita. Provo generazione locale...');
+                    if (typeof VerbaleGenerator !== 'undefined') {
+                        await VerbaleGenerator.generateAllegato(this.sopId);
+                    }
+                }
+            } else if (typeof VerbaleGenerator !== 'undefined') {
+                await VerbaleGenerator.generateAllegato(this.sopId);
+            } else {
+                UI.toast('Generatore DOCX non disponibile');
+            }
+        });
 
-        exportRow.appendChild(UI.btn('← Torna al Sopralluogo', 'btn-secondary btn-block', () => {
-            _sop.phase = Config.PHASES.SOPRALLUOGO;
-            DB.saveSopralluogo(_sop);
-            App.navigate('rooms', { id: _sop.id });
-        }));
+        // Export JSON
+        document.getElementById('btn-export-json')?.addEventListener('click', async () => {
+            await this._saveSigners();
+            const updated = await DB.getSopralluogo(this.sopId);
+            this._exportJSON(updated);
+        });
 
-        container.appendChild(exportRow);
-    }
+        // Back
+        document.getElementById('btn-back-rooms')?.addEventListener('click', () => {
+            App.navigate(`rooms/${this.sopId}`);
+        });
 
-    // ===== EDIT SECTION =====
-    function _renderEdit(container) {
-        container.innerHTML = '';
+        // L12: Riapri sopralluogo completato per modifiche
+        document.getElementById('btn-reopen')?.addEventListener('click', () => {
+            UI.confirmAction(
+                'Riaprire il sopralluogo per modifiche?\n\nPotrai modificare vani e osservazioni, poi rigenerare il verbale.',
+                async () => {
+                    const fresh = await DB.getSopralluogo(this.sopId);
+                    if (fresh) {
+                        fresh.completed = false;
+                        fresh.phase = 2;
+                        await DB.saveSopralluogo(fresh);
+                        UI.toast('Sopralluogo riaperto');
+                        App.navigate(`rooms/${this.sopId}`);
+                    }
+                }
+            );
+        });
 
-        if (_editSection === 'cappello') {
-            container.appendChild(UI.sectionHeader('Modifica Cappello'));
-            const text = _sop.custom_cappello || Formatters.generateCappelloText(_sop);
-            const { group, input } = UI.formGroup(null, 'textarea', text, '');
-            container.appendChild(group);
-            _editButtons(container, async () => {
-                _sop.custom_cappello = input.value.trim() || null;
-                await DB.saveSopralluogo(_sop);
+        // Signer toggle checkboxes
+        document.querySelectorAll('[data-signer-key]').forEach(chk => {
+            chk.addEventListener('change', async () => {
+                const key = chk.dataset.signerKey;
+                const inputId = key === 'proprietario' ? 'signer-prop' : key === 'metro_coll' ? 'signer-coll' : `signer-${key}`;
+                const inputEl = document.getElementById(inputId);
+                if (inputEl) {
+                    const wrapper = inputEl.closest('div[style*="flex:1"]');
+                    if (wrapper) {
+                        wrapper.style.opacity = chk.checked ? '1' : '0.5';
+                        inputEl.disabled = !chk.checked;
+                    }
+                }
+                await this._saveSignerEnabled();
             });
+        });
 
-        } else if (_editSection === 'chiusura') {
-            container.appendChild(UI.sectionHeader('Modifica Chiusura'));
-            const text = _sop.custom_chiusura || Formatters.generateChiusuraText(_sop);
-            const { group, input } = UI.formGroup(null, 'textarea', text, '');
-            container.appendChild(group);
-            _editButtons(container, async () => {
-                _sop.custom_chiusura = input.value.trim() || null;
-                await DB.saveSopralluogo(_sop);
-            });
+        // Auto-save signers on blur
+        document.querySelectorAll('input[id^="signer-"]').forEach(input => {
+            if (input.type !== 'checkbox') {
+                input.addEventListener('blur', () => this._saveSigners());
+            }
+        });
+    },
 
-        } else if (_editSection === 'operator_note') {
-            container.appendChild(UI.sectionHeader('Nota Operatore'));
-            const { group, input } = UI.formGroup(null, 'textarea', _sop.operator_note || '', '');
-            container.appendChild(group);
-            _editButtons(container, async () => {
-                _sop.operator_note = input.value.trim();
-                await DB.saveSopralluogo(_sop);
-            });
+    async _saveSigners() {
+        const signers = {
+            metro_tech: document.getElementById('signer-metro-tech')?.value.trim() || '',
+            rm: document.getElementById('signer-rm')?.value.trim() || '',
+            metro_coll: document.getElementById('signer-coll')?.value.trim() || '',
+            proprietario: document.getElementById('signer-prop')?.value.trim() || ''
+        };
+        await Events.dispatch('set_signers', this.sopId, signers);
+    },
 
-        } else if (_editSection === 'global_notes') {
-            container.appendChild(UI.sectionHeader('Note Globali'));
-            const text = (_sop.global_notes || []).join('\n');
-            const { group, input } = UI.formGroup(null, 'textarea', text, '');
-            container.appendChild(group);
-            _editButtons(container, async () => {
-                _sop.global_notes = input.value.split('\n').filter(l => l.trim());
-                await DB.saveSopralluogo(_sop);
-            });
+    async _saveSignerEnabled() {
+        const enabled = {};
+        document.querySelectorAll('[data-signer-key]').forEach(chk => {
+            enabled[chk.dataset.signerKey] = chk.checked;
+        });
+        await Events.dispatch('set_signer_enabled', this.sopId, enabled);
+    },
 
-        } else if (_editSection === 'signers') {
-            container.appendChild(UI.sectionHeader('Firmatari'));
-            const fields = [
-                { label: 'Tecnico Metro C', key: 'signer_metro_tech' },
-                { label: 'Roma Metropolitane', key: 'signer_rm' },
-                { label: 'Collaboratore', key: 'signer_metro_coll' },
-                { label: 'Proprietario', key: 'signer_owner' }
-            ];
-            const inputs = {};
-            fields.forEach(f => {
-                const { group, input } = UI.formGroup(f.label, 'text', _sop[f.key] || '', f.label);
-                inputs[f.key] = input;
-                container.appendChild(group);
-            });
-            _editButtons(container, async () => {
-                fields.forEach(f => { _sop[f.key] = inputs[f.key].value.trim(); });
-                await DB.saveSopralluogo(_sop);
-            });
-
-        } else if (_editSection && _editSection.startsWith('room:')) {
-            const roomName = _editSection.substring(5);
-            container.appendChild(UI.sectionHeader(`Modifica Testo: ${roomName}`));
-            const room = _sop.rooms[roomName];
-            const currentText = room.manual_text || Formatters.generateRoomText(room);
-            const { group, input } = UI.formGroup(null, 'textarea', currentText, '');
-            container.appendChild(group);
-
-            const row = document.createElement('div');
-            row.className = 'flex gap-8 mt-16';
-            row.appendChild(UI.btn('Auto-genera', 'btn-secondary', async () => {
-                room.manual_text = null;
-                await DB.saveSopralluogo(_sop);
-                _editSection = null;
-                await _renderMain(container);
-            }));
-            row.appendChild(UI.btn('Salva', 'btn-primary', async () => {
-                room.manual_text = input.value.trim() || null;
-                await DB.saveSopralluogo(_sop);
-                _editSection = null;
-                await _renderMain(container);
-            }));
-            container.appendChild(row);
-            return;
-        }
-    }
-
-    function _editButtons(container, saveFn) {
-        const row = document.createElement('div');
-        row.className = 'flex gap-8 mt-16';
-        row.appendChild(UI.btn('Annulla', 'btn-secondary', async () => {
-            _editSection = null;
-            await _renderMain(container);
-        }));
-        row.appendChild(UI.btn('Salva', 'btn-primary', async () => {
-            await saveFn();
-            _editSection = null;
-            await _renderMain(container);
-        }));
-        container.appendChild(row);
-    }
-
-    // ===== STATISTICHE =====
-    function _calcStats() {
-        let obsCount = 0, photoCount = 0;
-        const roomCount = Object.keys(_sop.rooms).length;
-        for (const name in _sop.rooms) {
-            const room = _sop.rooms[name];
-            const fotoKeys = Object.keys(room).filter(k => k.startsWith('Foto_'));
-            obsCount += fotoKeys.length;
-            photoCount += fotoKeys.filter(k => !k.includes('NOFOTO')).length;
-        }
-        const pertCount = (_sop.pertinenze || []).length;
-        return { roomCount, obsCount, photoCount, pertCount };
-    }
-
-    // ===== WARNINGS =====
-    function _getWarnings() {
-        const warnings = [];
-        for (const name in _sop.rooms) {
-            const room = _sop.rooms[name];
-            const status = _sop.room_status[name];
-            const hasObs = Object.keys(room).some(k => k.startsWith('Foto_'));
-            if (status === 'accessible' && !hasObs) {
-                warnings.push(`${name}: nessuna osservazione`);
+    _editRoomText(sop, roomName) {
+        const room = sop.rooms[roomName];
+        let currentText = room.manual_text || '';
+        if (!currentText && room.observations && room.observations.length > 0) {
+            if (typeof Formatters !== 'undefined') {
+                currentText = Formatters.generateRoomText(room.observations);
             }
         }
-        if (!_sop.signer_metro_tech) warnings.push('Firmatario Tecnico non impostato');
-        return warnings;
+
+        UI.promptInput(`Testo - ${roomName}`, 'Modifica il testo...', async (text) => {
+            await Events.dispatch('set_manual_text', this.sopId, { room_name: roomName, text });
+            UI.toast('Salvato');
+            const updated = await DB.getSopralluogo(this.sopId);
+            this.render(document.getElementById('app-content'), [this.sopId]);
+        }, { multiline: true, defaultValue: currentText });
+    },
+
+    _addNoteModal() {
+        const types = (CONFIG.DISCLAIMER_TYPES || []).concat([{ value: 'generic', label: 'Nota Generica' }]);
+
+        UI.choiceModal('Tipo Nota', types.map(t => ({ value: t.value, label: t.label })), (noteType) => {
+            UI.promptInput('Testo Nota', 'Scrivi la nota...', async (text) => {
+                await Events.dispatch('add_global_note', this.sopId, { note_type: noteType, note_text: text });
+                UI.toast('Nota aggiunta');
+                const updated = await DB.getSopralluogo(this.sopId);
+                this.render(document.getElementById('app-content'), [this.sopId]);
+            }, { multiline: true });
+        });
+    },
+
+    _exportJSON(sop) {
+        const exportData = {
+            sopralluogo: sop,
+            exported_at: new Date().toISOString(),
+            version: '2.0'
+        };
+
+        const json = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `testimoniale_${sop.building_code || 'export'}_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        UI.toast('JSON esportato');
     }
-
-    return { render };
-
-})();
+};

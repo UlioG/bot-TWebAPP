@@ -1,594 +1,680 @@
-/* ============================================================
- * prospetti.js — Gestione Prospetti (Parti Comuni)
- * Flusso IDENTICO al bot:
- *   Rivestimento → Selezione prospetti (A-H) → Lista →
- *   Entra prospetto → Osservazioni con piano e HREF
- *
- * ELEMENTS_PROSPETTI: solo [Pareti, Elemento/Varco]
- * VARCO_SUB_ELEMENTS_PROSPETTI: 17 sotto-elementi
- * Ogni osservazione ha prosp_floor e prosp_href aggiuntivi.
- * ============================================================ */
+/**
+ * prospetti.js - Gestione Prospetti (Parti Comuni)
+ * Flusso: Rivestimento -> Selezione (A-H) -> Lista -> Entry -> Piano -> HREF -> Wizard
+ * Architettura: Events.dispatch() per tutte le mutazioni
+ */
+const ProspettiView = {
+    sopId: null,
+    _view: 'init',
+    _currentProspetto: null,
+    _tempRiv: {},
+    _tempHref: {},
+    _tempProspFloor: '',
 
-'use strict';
+    async render(container, params) {
+        this.sopId = params[0];
+        if (!this.sopId) { App.navigate('home', true); return; }
 
-const ProspettiView = (() => {
+        const sop = await DB.getSopralluogo(this.sopId);
+        if (!sop) { App.navigate('home', true); return; }
 
-    let _sop = null;
-    let _view = 'init';
-    // init | rivestimento | riv_materiale | riv_piani |
-    // selection | list | entry |
-    // prosp_floor | prosp_floor_between | prosp_href_case | prosp_href_type | prosp_href_num | prosp_href_dir
-
-    let _currentProspetto = null;
-    let _tempRiv = {};
-    let _tempHref = {};
-    let _tempProspFloor = '';
-
-    async function render(container, params) {
-        _sop = await DB.getSopralluogo(params.id);
-        if (!_sop) { App.toast('Sopralluogo non trovato'); return; }
+        UI.setTitle('Prospetti');
+        UI.showBack(true, () => App.navigate(`rooms/${this.sopId}`));
 
         // Determina stato iniziale
-        if (_sop.prosp_selected && _sop.prosp_selected.length > 0) {
-            _view = 'list';
-        } else if (_sop.prosp_rivestimento !== null && _sop.prosp_rivestimento !== undefined) {
-            _view = 'selection';
+        if (sop.prosp_selected && sop.prosp_selected.length > 0) {
+            this._view = 'list';
+        } else if (sop.prosp_rivestimento) {
+            this._view = 'selection';
         } else {
-            _view = 'rivestimento';
+            this._view = 'rivestimento';
         }
 
-        if (params && params.view) _view = params.view;
-        if (params && params.prosp) _currentProspetto = params.prosp;
-        _render(container);
-    }
+        this._renderView(container, sop);
+    },
 
-    function _render(container) {
-        container.innerHTML = '';
-        switch (_view) {
-            case 'rivestimento': _renderRivestimento(container); break;
-            case 'riv_materiale': _renderRivMateriale(container); break;
-            case 'riv_piani': _renderRivPiani(container); break;
-            case 'selection': _renderSelection(container); break;
-            case 'list': _renderList(container); break;
-            case 'entry': _renderEntry(container); break;
-            case 'prosp_floor': _renderProspFloor(container); break;
-            case 'prosp_floor_between': _renderProspFloorBetween(container); break;
-            case 'prosp_href_case': _renderHrefCase(container); break;
-            case 'prosp_href_type': _renderHrefType(container); break;
-            case 'prosp_href_num': _renderHrefNum(container); break;
-            case 'prosp_href_dir': _renderHrefDir(container); break;
+    async _renderView(container, sop) {
+        if (!sop) sop = await DB.getSopralluogo(this.sopId);
+        switch (this._view) {
+            case 'rivestimento': this._renderRivestimento(container, sop); break;
+            case 'riv_materiale': this._renderRivMateriale(container, sop); break;
+            case 'riv_piani': this._renderRivPiani(container, sop); break;
+            case 'selection': this._renderSelection(container, sop); break;
+            case 'list': this._renderList(container, sop); break;
+            case 'entry': this._renderEntry(container, sop); break;
+            case 'prosp_floor': this._renderProspFloor(container, sop); break;
+            case 'prosp_floor_between': this._renderProspFloorBetween(container, sop); break;
+            case 'prosp_href_case': this._renderHrefCase(container, sop); break;
+            case 'prosp_href_type': this._renderHrefType(container, sop); break;
+            case 'prosp_href_num': this._renderHrefNum(container, sop); break;
+            case 'prosp_href_dir': this._renderHrefDir(container, sop); break;
+            case 'prosp_href_num2': this._renderHrefNum2(container, sop); break;
         }
-    }
+    },
 
-    // ===== RIVESTIMENTO =====
-    function _renderRivestimento(container) {
-        container.appendChild(UI.sectionHeader('Rivestimento'));
-        const p = document.createElement('p');
-        p.className = 'text-sm text-muted';
-        p.textContent = 'L\'edificio ha un rivestimento esterno?';
-        container.appendChild(p);
+    // ========== RIVESTIMENTO ==========
 
-        const grid = UI.buttonGrid([
-            { label: 'Sì, totale', value: 'totale', className: 'btn-primary' },
-            { label: 'Sì, parziale', value: 'parziale', className: 'btn-info' },
-            { label: 'No / Salta', value: 'no', className: 'btn-secondary' }
-        ], 3, (val) => {
-            if (val === 'no') {
-                _sop.prosp_rivestimento = { tipo: 'no' };
-                DB.saveSopralluogo(_sop);
-                _view = 'selection';
-                _render(container);
-            } else {
-                _tempRiv = { tipo: val };
-                _view = 'riv_materiale';
-                _render(container);
-            }
-        });
-        container.appendChild(grid);
+    _renderRivestimento(container, sop) {
+        const esc = UI._escapeHtml;
+        let html = UI.wizardHeader('Rivestimento', 'L\'edificio ha un rivestimento esterno?');
 
-        container.appendChild(UI.btn('← Torna ai Vani', 'btn-secondary btn-block mt-16', () => {
-            App.navigate('rooms', { id: _sop.id });
-        }));
-    }
+        html += UI.buttonGrid([
+            { value: 'totale', label: 'Si\', totale' },
+            { value: 'parziale', label: 'Si\', parziale' },
+            { value: 'no', label: 'No / Salta' }
+        ], { cols: 3 });
 
-    function _renderRivMateriale(container) {
-        container.appendChild(UI.sectionHeader('Materiale Rivestimento'));
-        const { group, input } = UI.formGroup(null, 'text', '', 'Descrivi il materiale');
-        container.appendChild(group);
+        html += `<div style="padding: 16px;">
+            <button class="btn btn-secondary" id="btn-back-rooms" style="width:100%;">← Torna ai Vani</button>
+        </div>`;
 
-        const row = document.createElement('div');
-        row.className = 'flex gap-8 mt-16';
-        row.appendChild(UI.btn('Salta', 'btn-secondary', () => {
-            _tempRiv.materiale = '';
-            if (_tempRiv.tipo === 'parziale') {
-                _view = 'riv_piani';
-            } else {
-                _sop.prosp_rivestimento = _tempRiv;
-                DB.saveSopralluogo(_sop);
-                _view = 'selection';
-            }
-            _render(container);
-        }));
-        row.appendChild(UI.btn('Avanti', 'btn-primary', () => {
-            _tempRiv.materiale = input.value.trim();
-            if (_tempRiv.tipo === 'parziale') {
-                _view = 'riv_piani';
-            } else {
-                _sop.prosp_rivestimento = _tempRiv;
-                DB.saveSopralluogo(_sop);
-                _view = 'selection';
-            }
-            _render(container);
-        }));
-        container.appendChild(row);
-    }
+        container.innerHTML = html;
 
-    function _renderRivPiani(container) {
-        container.appendChild(UI.sectionHeader('Piani Rivestiti'));
-        const { group, input } = UI.formGroup(null, 'text', '', 'Es: Piano 1 e Piano 2');
-        container.appendChild(group);
-
-        const row = document.createElement('div');
-        row.className = 'flex gap-8 mt-16';
-        row.appendChild(UI.btn('Salta', 'btn-secondary', () => {
-            _tempRiv.piani = '';
-            _sop.prosp_rivestimento = _tempRiv;
-            DB.saveSopralluogo(_sop);
-            _view = 'selection';
-            _render(container);
-        }));
-        row.appendChild(UI.btn('Avanti', 'btn-primary', () => {
-            _tempRiv.piani = input.value.trim();
-            _sop.prosp_rivestimento = _tempRiv;
-            DB.saveSopralluogo(_sop);
-            _view = 'selection';
-            _render(container);
-        }));
-        container.appendChild(row);
-    }
-
-    // ===== SELEZIONE PROSPETTI (checkbox A-H) =====
-    function _renderSelection(container) {
-        container.appendChild(UI.sectionHeader('Seleziona Prospetti'));
-        const p = document.createElement('p');
-        p.className = 'text-sm text-muted';
-        p.textContent = 'Seleziona i prospetti da analizzare:';
-        container.appendChild(p);
-
-        const selected = new Set(_sop.prosp_selected_temp || []);
-        const grid = document.createElement('div');
-        grid.className = 'btn-grid cols-4';
-
-        Config.PROSPETTO_DEFAULT_LABELS.forEach(label => {
-            const letter = label.replace('Prospetto ', '');
-            const isSelected = selected.has(label);
-            const b = UI.btn(letter, isSelected ? 'btn-primary' : 'btn-secondary', () => {
-                if (selected.has(label)) {
-                    selected.delete(label);
-                    b.className = 'btn btn-secondary';
+        container.querySelectorAll('.btn-choice').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const val = btn.dataset.value;
+                if (val === 'no') {
+                    await Events.dispatch('update_setup', this.sopId, {
+                        prosp_rivestimento: { tipo: 'no' }
+                    });
+                    this._view = 'selection';
+                    this._renderView(container);
                 } else {
-                    selected.add(label);
-                    b.className = 'btn btn-primary';
+                    this._tempRiv = { tipo: val };
+                    this._view = 'riv_materiale';
+                    this._renderView(container);
                 }
             });
-            grid.appendChild(b);
         });
-        container.appendChild(grid);
+
+        document.getElementById('btn-back-rooms').addEventListener('click', () => {
+            App.navigate(`rooms/${this.sopId}`);
+        });
+    },
+
+    _renderRivMateriale(container, sop) {
+        let html = UI.wizardHeader('Materiale Rivestimento', 'Descrivi il materiale (opzionale)');
+        html += UI.formInput({
+            label: 'Materiale',
+            placeholder: 'Es. Travertino, Intonaco...',
+            id: 'field-riv-materiale',
+            value: ''
+        });
+        html += `<div style="padding: 16px; display: flex; gap: 8px;">
+            <button class="btn btn-secondary" id="btn-riv-skip" style="flex:1;">Salta</button>
+            <button class="btn btn-primary" id="btn-riv-next" style="flex:1;">Avanti</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        const nextAction = async () => {
+            const input = document.getElementById('field-riv-materiale');
+            this._tempRiv.materiale = input ? input.value.trim() : '';
+            if (this._tempRiv.tipo === 'parziale') {
+                this._view = 'riv_piani';
+                this._renderView(container);
+            } else {
+                await Events.dispatch('update_setup', this.sopId, {
+                    prosp_rivestimento: this._tempRiv
+                });
+                this._view = 'selection';
+                this._renderView(container);
+            }
+        };
+
+        document.getElementById('btn-riv-skip').addEventListener('click', async () => {
+            this._tempRiv.materiale = '';
+            await nextAction();
+        });
+        document.getElementById('btn-riv-next').addEventListener('click', nextAction);
+    },
+
+    _renderRivPiani(container, sop) {
+        let html = UI.wizardHeader('Piani Rivestiti', 'Indica i piani con rivestimento');
+        html += UI.formInput({
+            label: 'Piani',
+            placeholder: 'Es. Piano 1 e Piano 2',
+            id: 'field-riv-piani',
+            value: ''
+        });
+        html += `<div style="padding: 16px; display: flex; gap: 8px;">
+            <button class="btn btn-secondary" id="btn-piani-skip" style="flex:1;">Salta</button>
+            <button class="btn btn-primary" id="btn-piani-next" style="flex:1;">Avanti</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        const finalize = async () => {
+            const input = document.getElementById('field-riv-piani');
+            this._tempRiv.piani = input ? input.value.trim() : '';
+            await Events.dispatch('update_setup', this.sopId, {
+                prosp_rivestimento: this._tempRiv
+            });
+            this._view = 'selection';
+            this._renderView(container);
+        };
+
+        document.getElementById('btn-piani-skip').addEventListener('click', () => {
+            this._tempRiv.piani = '';
+            finalize();
+        });
+        document.getElementById('btn-piani-next').addEventListener('click', finalize);
+    },
+
+    // ========== SELEZIONE PROSPETTI (checkbox A-H) ==========
+
+    _renderSelection(container, sop) {
+        const esc = UI._escapeHtml;
+        const selected = new Set(sop.prosp_selected || []);
+
+        let html = UI.wizardHeader('Seleziona Prospetti', 'Tocca per selezionare/deselezionare');
+
+        // Griglia A-H
+        const labels = CONFIG.PROSPETTO_DEFAULT_LABELS || [];
+        const btns = labels.map(label => {
+            const letter = label.replace('Prospetto ', '');
+            const sel = selected.has(label) ? ' selected' : '';
+            return `<button class="btn-choice${sel}" data-value="${esc(label)}">${esc(letter)}</button>`;
+        }).join('');
+        html += `<div class="btn-grid btn-grid-3" id="prosp-grid">${btns}</div>`;
+
+        html += `<div style="padding: 16px; display:flex; flex-direction:column; gap:8px;">
+            <button class="btn btn-secondary" id="btn-prosp-custom" style="width:100%;">Aggiungi Personalizzato</button>
+            <button class="btn btn-primary" id="btn-prosp-confirm" style="width:100%;">Conferma Selezione</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        // Toggle selezione
+        container.querySelectorAll('#prosp-grid .btn-choice').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const val = btn.dataset.value;
+                if (selected.has(val)) {
+                    selected.delete(val);
+                    btn.classList.remove('selected');
+                } else {
+                    selected.add(val);
+                    btn.classList.add('selected');
+                }
+            });
+        });
 
         // Custom
-        container.appendChild(UI.btn('Aggiungi Personalizzato', 'btn-outline btn-block btn-sm mt-8', () => {
-            const custom = prompt('Nome prospetto:');
-            if (custom && custom.trim()) {
-                selected.add(custom.trim());
-                _render(container); // Force re-render
-            }
-        }));
+        document.getElementById('btn-prosp-custom').addEventListener('click', () => {
+            UI.promptInput('Nome Prospetto', 'Es. Prospetto Interno', (val) => {
+                selected.add(val);
+                this._renderView(container, sop); // re-render
+            });
+        });
 
-        container.appendChild(UI.btn('Conferma', 'btn-primary btn-block mt-16', async () => {
+        // Conferma
+        document.getElementById('btn-prosp-confirm').addEventListener('click', async () => {
             if (selected.size === 0) {
-                App.toast('Seleziona almeno un prospetto');
+                UI.toast('Seleziona almeno un prospetto');
                 return;
             }
-            // Ordina: default labels prima, poi custom
+
             const ordered = Array.from(selected).sort((a, b) => {
-                const ia = Config.PROSPETTO_DEFAULT_LABELS.indexOf(a);
-                const ib = Config.PROSPETTO_DEFAULT_LABELS.indexOf(b);
-                const oa = ia >= 0 ? ia : 999;
-                const ob = ib >= 0 ? ib : 999;
-                return oa - ob;
+                const ia = labels.indexOf(a);
+                const ib = labels.indexOf(b);
+                return (ia >= 0 ? ia : 999) - (ib >= 0 ? ib : 999);
             });
 
-            _sop.prosp_selected = ordered;
-            _sop.prosp_selected_temp = [];
-
-            // Crea room data per ogni prospetto
-            ordered.forEach(prosp => {
-                if (!_sop.rooms[prosp]) {
-                    _sop.rooms[prosp] = {
-                        room_destination: 'PROSPETTO',
-                        room_finishes: null,
-                        has_cdp: null,
-                        disclaimer_type: null,
-                        marker_coords: null
-                    };
-                    _sop.room_status[prosp] = Config.ROOM_STATUSES.ACCESSIBLE;
+            // Crea room per ogni prospetto
+            for (const prosp of ordered) {
+                const rooms = Events.getActiveRooms(sop);
+                if (!rooms[prosp]) {
+                    await Events.dispatch('add_vano', this.sopId, {
+                        room_number: prosp,
+                        room_name: 'Prospetto',
+                        full_name: prosp,
+                        destination: 'PROSPETTO'
+                    });
                 }
+            }
+
+            await Events.dispatch('update_setup', this.sopId, {
+                prosp_selected: ordered
             });
 
-            await DB.saveSopralluogo(_sop);
-            _view = 'list';
-            _render(container);
-        }));
-    }
+            this._view = 'list';
+            this._renderView(container);
+        });
+    },
 
-    // ===== LISTA PROSPETTI =====
-    function _renderList(container) {
-        container.appendChild(UI.sectionHeader('Prospetti'));
+    // ========== LISTA PROSPETTI ==========
+
+    async _renderList(container, sop) {
+        if (!sop) sop = await DB.getSopralluogo(this.sopId);
+        const esc = UI._escapeHtml;
+        const prospetti = sop.prosp_selected || [];
+
+        let html = '';
 
         // Info rivestimento
-        if (_sop.prosp_rivestimento && _sop.prosp_rivestimento.tipo !== 'no') {
-            const rivCard = UI.card('Rivestimento');
-            const rivInfo = document.createElement('p');
-            rivInfo.className = 'text-sm';
-            let rivText = _sop.prosp_rivestimento.tipo;
-            if (_sop.prosp_rivestimento.materiale) rivText += ` — ${_sop.prosp_rivestimento.materiale}`;
-            if (_sop.prosp_rivestimento.piani) rivText += ` (${_sop.prosp_rivestimento.piani})`;
-            rivInfo.textContent = rivText;
-            rivCard.appendChild(rivInfo);
-            container.appendChild(rivCard);
+        if (sop.prosp_rivestimento && sop.prosp_rivestimento.tipo !== 'no') {
+            let rivText = sop.prosp_rivestimento.tipo;
+            if (sop.prosp_rivestimento.materiale) rivText += ` - ${sop.prosp_rivestimento.materiale}`;
+            if (sop.prosp_rivestimento.piani) rivText += ` (${sop.prosp_rivestimento.piani})`;
+            html += UI.contextHeader(`Rivestimento: ${rivText}`, '🧱');
         }
 
-        const prospetti = _sop.prosp_selected || [];
+        // Celle prospetti
+        let cells = '';
+        for (const prosp of prospetti) {
+            const room = (sop.rooms || {})[prosp] || {};
+            const obs = room.observations || [];
+            const obsCount = obs.length;
+            const hasNdr = obs.some(o => o.phenomenon === 'NDR');
 
-        prospetti.forEach(prosp => {
-            const room = _sop.rooms[prosp] || {};
-            const status = _sop.room_status[prosp] || 'accessible';
-            const obsCount = Object.keys(room).filter(k => k.startsWith('Foto_')).length;
-
-            let meta = '';
-            if (status !== 'accessible') {
-                const statusLabels = {
-                    non_accessibile: 'Non Accessibile',
-                    non_valutabile: 'Non Valutabile',
-                    non_autorizzato: 'Non Autorizzato'
-                };
-                meta = statusLabels[status] || status;
+            let subtitle = '';
+            if (room.status && room.status !== 'accessible') {
+                const labels = { non_accessibile: 'Non Accessibile', non_valutabile: 'Non Valutabile' };
+                subtitle = labels[room.status] || room.status;
             } else if (obsCount > 0) {
-                meta = `${obsCount} difetti`;
+                const ndrCount = obs.filter(o => o.phenomenon === 'NDR').length;
+                const defectCount = obsCount - ndrCount;
+                const parts = [];
+                if (defectCount > 0) parts.push(`${defectCount} difett${defectCount === 1 ? 'o' : 'i'}`);
+                if (ndrCount > 0) parts.push(`${ndrCount} NDR`);
+                subtitle = parts.join(', ');
             } else {
-                // Controlla se ha NDR
-                const obs = DB.getRoomObservations(room);
-                const hasNdr = obs.some(o => o.phenomenon === 'NDR');
-                meta = hasNdr ? 'NDR' : 'Da analizzare';
+                subtitle = 'Da analizzare';
             }
 
-            container.appendChild(UI.roomCard(prosp, meta, obsCount > 0 || meta === 'NDR' ? 'completed' : '', () => {
-                _currentProspetto = prosp;
-                _view = 'entry';
-                _render(container);
-            }));
-        });
-
-        // Azioni
-        const actions = document.createElement('div');
-        actions.className = 'flex flex-col gap-8 mt-16';
-
-        actions.appendChild(UI.btn('Modifica Selezione', 'btn-outline btn-block btn-sm', () => {
-            _sop.prosp_selected_temp = new Set(_sop.prosp_selected || []);
-            _view = 'selection';
-            _render(container);
-        }));
-
-        actions.appendChild(UI.btn('← Torna ai Vani', 'btn-secondary btn-block', () => {
-            App.navigate('rooms', { id: _sop.id });
-        }));
-
-        container.appendChild(actions);
-    }
-
-    // ===== SINGOLO PROSPETTO =====
-    function _renderEntry(container) {
-        const prosp = _currentProspetto;
-        if (!prosp) { _view = 'list'; _render(container); return; }
-
-        container.appendChild(UI.sectionHeader(prosp));
-
-        const room = _sop.rooms[prosp] || {};
-        const status = _sop.room_status[prosp] || 'accessible';
-
-        // Osservazioni
-        const observations = DB.getRoomObservations(room);
-        if (observations.length > 0) {
-            container.appendChild(UI.sectionHeader('Osservazioni'));
-            const list = document.createElement('ul');
-            list.className = 'obs-list';
-            observations.forEach((obs, i) => {
-                const text = Formatters.formatObservationText(obs, { includeVf: true, vfNumber: i + 1 });
-                list.appendChild(UI.obsItem(i + 1, text, async () => {
-                    const ok = await App.confirm(`Eliminare osservazione ${i + 1}?`);
-                    if (ok) {
-                        await DB.removeObservation(_sop, prosp, obs._foto_key);
-                        _sop = await DB.getSopralluogo(_sop.id);
-                        _render(container);
-                    }
-                }));
+            const icon = obsCount > 0 ? '✅' : '⬜';
+            cells += UI.cell({
+                icon: icon,
+                title: prosp,
+                subtitle: subtitle,
+                dataId: prosp
             });
-            container.appendChild(list);
+        }
+
+        if (cells) {
+            html += UI.section('PROSPETTI', cells);
         } else {
-            container.appendChild(UI.emptyState('', 'Nessuna osservazione'));
+            html += UI.emptyState('🏛', 'Nessun prospetto', 'Torna indietro e seleziona i prospetti');
+        }
+
+        html += `<div style="padding: 16px; display:flex; flex-direction:column; gap:8px;">
+            <button class="btn btn-secondary" id="btn-edit-selection" style="width:100%;">Modifica Selezione</button>
+            <button class="btn btn-secondary" id="btn-back-rooms" style="width:100%;">← Torna ai Vani</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        // Click prospetto
+        container.querySelectorAll('.cell[data-id]').forEach(cell => {
+            cell.addEventListener('click', () => {
+                this._currentProspetto = cell.dataset.id;
+                this._view = 'entry';
+                this._renderView(container);
+            });
+        });
+
+        document.getElementById('btn-edit-selection')?.addEventListener('click', () => {
+            this._view = 'selection';
+            this._renderView(container);
+        });
+
+        document.getElementById('btn-back-rooms')?.addEventListener('click', () => {
+            App.navigate(`rooms/${this.sopId}`);
+        });
+    },
+
+    // ========== SINGOLO PROSPETTO ==========
+
+    async _renderEntry(container, sop) {
+        if (!sop) sop = await DB.getSopralluogo(this.sopId);
+        const esc = UI._escapeHtml;
+        const prosp = this._currentProspetto;
+        if (!prosp) { this._view = 'list'; this._renderView(container, sop); return; }
+
+        const room = (sop.rooms || {})[prosp] || {};
+        const observations = room.observations || [];
+
+        let html = UI.wizardHeader(prosp, `${observations.length} osservazion${observations.length === 1 ? 'e' : 'i'}`);
+
+        // Lista osservazioni
+        if (observations.length > 0) {
+            let obsHtml = '';
+            for (let i = 0; i < observations.length; i++) {
+                obsHtml += UI.observationCard(observations[i], i);
+            }
+            html += UI.section('OSSERVAZIONI', obsHtml);
+        } else {
+            html += UI.emptyState('', 'Nessuna osservazione', '');
         }
 
         // Azioni
-        const actions = document.createElement('div');
-        actions.className = 'flex flex-col gap-8 mt-16';
+        html += `<div style="padding: 16px; display:flex; flex-direction:column; gap:8px;">
+            <button class="btn btn-primary" id="btn-add-obs" style="width:100%;">+ Aggiungi Osservazione</button>
+            <button class="btn btn-secondary" id="btn-ndr" style="width:100%; background: #2e7d32; color: white;">🟢 NDR (Pareti)</button>
+            <button class="btn btn-secondary" id="btn-ndr-varco" style="width:100%; background: #2e7d32; color: white;">🟢 NDR (Elemento/Varco)</button>
+            <button class="btn btn-secondary" id="btn-status" style="width:100%;">Modifica Stato</button>
+            <button class="btn btn-secondary" id="btn-back-list" style="width:100%;">← Lista Prospetti</button>
+        </div>`;
 
-        // Foto panoramica
-        actions.appendChild(UI.btn('📷 Foto Panoramica', 'btn-outline btn-block', async () => {
-            try {
-                const result = await Photos.captureFromCamera();
-                const panoCount = (await DB.getPhotosByRoom(_sop.id, prosp))
-                    .filter(p => p.type === 'panoramica').length;
-                const filename = `FOTO_PANORAMICA_${panoCount + 1}.jpg`;
-                await Photos.savePhoto(_sop.id, prosp, 'panoramica', filename, result.blob, result.thumbnail);
-                App.toast('Foto panoramica salvata!');
-            } catch (e) { App.toast('Errore foto'); }
-        }));
+        container.innerHTML = html;
 
-        // NDR
-        if (status === 'accessible') {
-            actions.appendChild(UI.btn('🟢 NDR', 'btn-ndr btn-block', async () => {
-                // NDR per Pareti
-                await DB.addObservation(_sop, prosp, { element: 'Pareti', phenomenon: 'NDR' });
-                _sop = await DB.getSopralluogo(_sop.id);
-                _render(container);
-                App.toast('NDR salvato!');
-            }));
-        }
-
-        // Aggiungi osservazione con piano e HREF
-        actions.appendChild(UI.btn('+ Aggiungi Osservazione', 'btn-primary btn-block', () => {
-            // Per prospetti: prima chiediamo il piano, poi HREF, poi wizard
-            _tempProspFloor = '';
-            _tempHref = {};
-            _view = 'prosp_floor';
-            _render(container);
-        }));
-
-        // Stato (Non accessibile, ecc.)
-        actions.appendChild(UI.btn('Modifica Stato', 'btn-outline btn-block btn-sm', () => {
-            _renderProspStatus(container);
-        }));
-
-        actions.appendChild(UI.btn('← Lista Prospetti', 'btn-secondary btn-block', () => {
-            _view = 'list';
-            _render(container);
-        }));
-
-        container.appendChild(actions);
-    }
-
-    // ===== PIANO PROSPETTO =====
-    function _renderProspFloor(container) {
-        container.appendChild(UI.sectionHeader('Piano'));
-        const floors = _sop.building_floors || Config.PREDEFINED_FLOORS;
-
-        const grid = document.createElement('div');
-        grid.className = 'btn-grid cols-3';
-        floors.forEach(f => {
-            const abbr = Config.getFloorAbbrev(f);
-            grid.appendChild(UI.btn(abbr, 'btn-secondary', () => {
-                _tempProspFloor = f;
-                _view = 'prosp_href_case';
-                _render(container);
-            }));
+        // Delete osservazione
+        container.querySelectorAll('.obs-btn-delete').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.obsIndex);
+                UI.confirmAction(`Eliminare osservazione ${idx + 1}?`, async () => {
+                    await Events.dispatch('delete_observation', this.sopId, {
+                        room_name: prosp,
+                        observation_index: idx
+                    });
+                    this._renderView(container);
+                });
+            });
         });
-        container.appendChild(grid);
 
-        // Tra due piani
-        container.appendChild(UI.btn('Tra due piani', 'btn-outline btn-block btn-sm mt-8', () => {
-            _sop._prosp_floor_step = 1;
-            _view = 'prosp_floor_between';
-            _render(container);
-        }));
+        // Aggiungi osservazione (piano -> href -> wizard)
+        document.getElementById('btn-add-obs').addEventListener('click', () => {
+            this._tempProspFloor = '';
+            this._tempHref = {};
+            this._view = 'prosp_floor';
+            this._renderView(container, sop);
+        });
 
-        // Scrivi a mano
-        container.appendChild(UI.btn('Scrivi a Mano', 'btn-outline btn-block btn-sm mt-4', () => {
-            const custom = prompt('Piano:');
-            if (custom && custom.trim()) {
-                _tempProspFloor = custom.trim();
-                _view = 'prosp_href_case';
-                _render(container);
-            }
-        }));
+        // NDR Pareti
+        document.getElementById('btn-ndr').addEventListener('click', async () => {
+            await Events.dispatch('set_room_ndr', this.sopId, {
+                room_name: prosp,
+                element: 'Pareti'
+            });
+            UI.toast('NDR Pareti salvato');
+            this._renderView(container);
+        });
 
-        // Salta piano
-        container.appendChild(UI.btn('Salta', 'btn-secondary btn-block mt-8', () => {
-            _tempProspFloor = '';
-            _view = 'prosp_href_case';
-            _render(container);
-        }));
-    }
+        // NDR Elemento/Varco
+        document.getElementById('btn-ndr-varco').addEventListener('click', async () => {
+            await Events.dispatch('set_room_ndr', this.sopId, {
+                room_name: prosp,
+                element: 'Elemento/Varco'
+            });
+            UI.toast('NDR Elemento/Varco salvato');
+            this._renderView(container);
+        });
 
-    // ===== TRA DUE PIANI =====
-    function _renderProspFloorBetween(container) {
-        const step = _sop._prosp_floor_step || 1;
-        container.appendChild(UI.sectionHeader(step === 1 ? 'Primo Piano' : 'Secondo Piano'));
+        // Stato
+        document.getElementById('btn-status').addEventListener('click', () => {
+            this._renderProspStatus(container, sop);
+        });
 
-        const floors = _sop.building_floors || Config.PREDEFINED_FLOORS;
-        const grid = document.createElement('div');
-        grid.className = 'btn-grid cols-3';
-        floors.forEach(f => {
-            const abbr = Config.getFloorAbbrev(f);
-            grid.appendChild(UI.btn(abbr, 'btn-secondary', () => {
+        // Indietro
+        document.getElementById('btn-back-list').addEventListener('click', () => {
+            this._view = 'list';
+            this._renderView(container);
+        });
+    },
+
+    // ========== PIANO PROSPETTO ==========
+
+    _renderProspFloor(container, sop) {
+        let html = UI.wizardHeader('Piano', 'A quale piano si riferisce il difetto?');
+
+        const floors = (sop.building_floors && sop.building_floors.length > 0)
+            ? sop.building_floors
+            : CONFIG.PREDEFINED_FLOORS;
+
+        html += UI.floorGrid(floors);
+
+        html += `<div style="padding: 16px; display:flex; flex-direction:column; gap:8px;">
+            <button class="btn btn-secondary" id="btn-floor-between" style="width:100%;">Tra due piani</button>
+            <button class="btn btn-secondary" id="btn-floor-manual" style="width:100%;">Scrivi a Mano</button>
+            <button class="btn btn-secondary" id="btn-floor-skip" style="width:100%;">Salta</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice, .btn-floor').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._tempProspFloor = btn.dataset.value;
+                this._view = 'prosp_href_case';
+                this._renderView(container, sop);
+            });
+        });
+
+        document.getElementById('btn-floor-between').addEventListener('click', () => {
+            this._prosp_floor_step = 1;
+            this._prosp_floor_first = '';
+            this._view = 'prosp_floor_between';
+            this._renderView(container, sop);
+        });
+
+        document.getElementById('btn-floor-manual').addEventListener('click', () => {
+            UI.promptInput('Piano', 'Scrivi il piano', (val) => {
+                this._tempProspFloor = val;
+                this._view = 'prosp_href_case';
+                this._renderView(container, sop);
+            });
+        });
+
+        document.getElementById('btn-floor-skip').addEventListener('click', () => {
+            this._tempProspFloor = '';
+            this._view = 'prosp_href_case';
+            this._renderView(container, sop);
+        });
+    },
+
+    // ========== TRA DUE PIANI ==========
+
+    _renderProspFloorBetween(container, sop) {
+        const step = this._prosp_floor_step || 1;
+        let html = UI.wizardHeader(step === 1 ? 'Primo Piano' : 'Secondo Piano', 'Seleziona');
+
+        const floors = (sop.building_floors && sop.building_floors.length > 0)
+            ? sop.building_floors
+            : CONFIG.PREDEFINED_FLOORS;
+
+        html += UI.floorGrid(floors);
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice, .btn-floor').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const abbr = CONFIG.getFloorAbbr(btn.dataset.value) || btn.dataset.value;
                 if (step === 1) {
-                    _sop._prosp_floor_first = abbr;
-                    _sop._prosp_floor_step = 2;
-                    _render(container);
+                    this._prosp_floor_first = abbr;
+                    this._prosp_floor_step = 2;
+                    this._renderView(container, sop);
                 } else {
-                    _tempProspFloor = `tra ${_sop._prosp_floor_first} e ${abbr}`;
-                    delete _sop._prosp_floor_step;
-                    delete _sop._prosp_floor_first;
-                    _view = 'prosp_href_case';
-                    _render(container);
+                    this._tempProspFloor = `tra ${this._prosp_floor_first} e ${abbr}`;
+                    this._view = 'prosp_href_case';
+                    this._renderView(container, sop);
                 }
-            }));
+            });
         });
-        container.appendChild(grid);
-    }
+    },
 
-    // ===== HREF: CASO =====
-    function _renderHrefCase(container) {
-        container.appendChild(UI.sectionHeader('Posizione Orizzontale'));
-        const options = [
-            { label: '↔️ Tra ... N e N+1', value: 'tra', className: 'btn-secondary' },
-            { label: '📌 Presso ... N', value: 'presso', className: 'btn-secondary' },
-            { label: '◀️ Prima di ... 1', value: 'prima', className: 'btn-secondary' },
-            { label: '▶️ Dopo ... N', value: 'dopo', className: 'btn-secondary' },
-            { label: 'Nessun riferimento', value: 'skip', className: 'btn-outline' }
-        ];
-        const grid = UI.buttonGrid(options, 2, (val) => {
-            if (val === 'skip') {
-                _tempHref = {};
-                _goToWizard();
-            } else {
-                _tempHref = { case: val };
-                _view = 'prosp_href_type';
-                _render(container);
-            }
+    // ========== HREF: CASO ==========
+
+    _renderHrefCase(container, sop) {
+        let html = UI.wizardHeader('Posizione Orizzontale', 'Riferimento spaziale del difetto');
+
+        html += UI.buttonGrid([
+            { value: 'tra', label: '↔ Tra N e N+1' },
+            { value: 'presso', label: '📌 Presso N' },
+            { value: 'prima', label: '◀ Prima di 1' },
+            { value: 'dopo', label: '▶ Dopo N' },
+            { value: 'skip', label: 'Nessun riferimento' }
+        ], { cols: 1 });
+
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const val = btn.dataset.value;
+                if (val === 'skip') {
+                    this._tempHref = {};
+                    this._goToWizard(sop);
+                } else {
+                    this._tempHref = { case: val };
+                    this._view = 'prosp_href_type';
+                    this._renderView(container, sop);
+                }
+            });
         });
-        container.appendChild(grid);
-    }
+    },
 
-    // ===== HREF: TIPO =====
-    function _renderHrefType(container) {
-        container.appendChild(UI.sectionHeader('Tipo Riferimento'));
-        const grid = UI.buttonGrid(Config.PROSP_HREF_TYPES, 3, (val) => {
-            _tempHref.type = val;
-            _view = 'prosp_href_num';
-            _render(container);
+    // ========== HREF: TIPO ==========
+
+    _renderHrefType(container, sop) {
+        let html = UI.wizardHeader('Tipo Riferimento', 'Seleziona il tipo di elemento');
+
+        const types = CONFIG.PROSP_HREF_TYPES || ['finestra', 'balcone', 'portafinestra'];
+        html += UI.buttonGrid(types.map(t => ({ value: t, label: t })), { cols: 3 });
+
+        html += `<div style="padding: 16px;">
+            <button class="btn btn-secondary" id="btn-href-custom" style="width:100%;">Scrivi a Mano</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._tempHref.type = btn.dataset.value;
+                this._view = 'prosp_href_num';
+                this._renderView(container, sop);
+            });
         });
-        container.appendChild(grid);
 
-        container.appendChild(UI.btn('Scrivi a Mano', 'btn-outline btn-block btn-sm mt-8', () => {
-            const custom = prompt('Tipo:');
-            if (custom && custom.trim()) {
-                _tempHref.type = custom.trim();
-                _view = 'prosp_href_num';
-                _render(container);
-            }
-        }));
-    }
+        document.getElementById('btn-href-custom').addEventListener('click', () => {
+            UI.promptInput('Tipo', 'Es. portone, colonna...', (val) => {
+                this._tempHref.type = val;
+                this._view = 'prosp_href_num';
+                this._renderView(container, sop);
+            });
+        });
+    },
 
-    // ===== HREF: NUMERO =====
-    function _renderHrefNum(container) {
-        container.appendChild(UI.sectionHeader('Numero'));
+    // ========== HREF: NUMERO ==========
+
+    _renderHrefNum(container, sop) {
+        let html = UI.wizardHeader('Numero', 'Seleziona il numero');
+
         const nums = [];
-        for (let i = 1; i <= 10; i++) nums.push(String(i));
+        for (let i = 1; i <= 10; i++) nums.push({ value: String(i), label: String(i) });
+        html += UI.buttonGrid(nums, { cols: 5 });
 
-        const grid = UI.buttonGrid(nums, 5, (val) => {
-            _tempHref.num = val;
-            if (_tempHref.case === 'tra') {
-                // Chiedi direzione primo + secondo numero
-                _view = 'prosp_href_dir';
-                _render(container);
-            } else {
-                // Chiedi direzione
-                _view = 'prosp_href_dir';
-                _render(container);
-            }
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._tempHref.num = btn.dataset.value;
+                this._view = 'prosp_href_dir';
+                this._renderView(container, sop);
+            });
         });
-        container.appendChild(grid);
-    }
+    },
 
-    // ===== HREF: DIREZIONE =====
-    function _renderHrefDir(container) {
-        container.appendChild(UI.sectionHeader('Contando da'));
-        const grid = UI.buttonGrid([
-            { label: 'da SX', value: 'da SX', className: 'btn-secondary' },
-            { label: 'da DX', value: 'da DX', className: 'btn-secondary' }
-        ], 2, (val) => {
-            _tempHref.dir = val;
+    // ========== HREF: DIREZIONE ==========
 
-            if (_tempHref.case === 'tra' && !_tempHref.num2) {
-                // Chiedi secondo numero
-                _tempHref.num2_pending = true;
-                _renderHrefNum2(container);
-                return;
-            }
+    _renderHrefDir(container, sop) {
+        let html = UI.wizardHeader('Contando da', 'Da che lato si conta?');
 
-            _goToWizard();
+        html += UI.buttonGrid([
+            { value: 'da SX', label: '← da SX' },
+            { value: 'da DX', label: 'da DX →' }
+        ], { cols: 1 });
+
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._tempHref.dir = btn.dataset.value;
+
+                if (this._tempHref.case === 'tra' && !this._tempHref.num2) {
+                    this._view = 'prosp_href_num2';
+                    this._renderView(container, sop);
+                    return;
+                }
+
+                this._goToWizard(sop);
+            });
         });
-        container.appendChild(grid);
-    }
+    },
 
-    function _renderHrefNum2(container) {
-        container.innerHTML = '';
-        container.appendChild(UI.sectionHeader('Secondo Numero'));
+    // ========== HREF: SECONDO NUMERO (per "tra") ==========
+
+    _renderHrefNum2(container, sop) {
+        let html = UI.wizardHeader('Secondo Numero', 'Seleziona il secondo numero');
+
         const nums = [];
-        for (let i = 1; i <= 10; i++) nums.push(String(i));
+        for (let i = 1; i <= 10; i++) nums.push({ value: String(i), label: String(i) });
+        html += UI.buttonGrid(nums, { cols: 5 });
 
-        const grid = UI.buttonGrid(nums, 5, (val) => {
-            _tempHref.num2 = val;
-            _goToWizard();
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._tempHref.num2 = btn.dataset.value;
+                this._goToWizard(sop);
+            });
         });
-        container.appendChild(grid);
-    }
+    },
 
-    // ===== NAVIGA AL WIZARD =====
-    function _goToWizard() {
+    // ========== NAVIGA AL WIZARD ==========
+
+    _goToWizard(sop) {
         // Costruisci stringa HREF
         let hrefStr = '';
-        if (_tempHref.case && _tempHref.type && _tempHref.num) {
-            const dir = _tempHref.dir || '';
-            if (_tempHref.case === 'tra' && _tempHref.num2) {
-                hrefStr = `tra ${_tempHref.type} ${_tempHref.num} ${dir} e ${_tempHref.type} ${_tempHref.num2} ${dir}`;
-            } else if (_tempHref.case === 'presso') {
-                hrefStr = `presso ${_tempHref.type} ${_tempHref.num} ${dir}`;
-            } else if (_tempHref.case === 'prima') {
-                hrefStr = `prima di ${_tempHref.type} ${_tempHref.num} ${dir}`;
-            } else if (_tempHref.case === 'dopo') {
-                hrefStr = `dopo ${_tempHref.type} ${_tempHref.num} ${dir}`;
+        if (this._tempHref.case && this._tempHref.type && this._tempHref.num) {
+            const dir = this._tempHref.dir || '';
+            if (this._tempHref.case === 'tra' && this._tempHref.num2) {
+                hrefStr = `tra ${this._tempHref.type} ${this._tempHref.num} ${dir} e ${this._tempHref.type} ${this._tempHref.num2} ${dir}`;
+            } else if (this._tempHref.case === 'presso') {
+                hrefStr = `presso ${this._tempHref.type} ${this._tempHref.num} ${dir}`;
+            } else if (this._tempHref.case === 'prima') {
+                hrefStr = `prima di ${this._tempHref.type} ${this._tempHref.num} ${dir}`;
+            } else if (this._tempHref.case === 'dopo') {
+                hrefStr = `dopo ${this._tempHref.type} ${this._tempHref.num} ${dir}`;
             }
             hrefStr = hrefStr.trim();
         }
 
-        // Salva nel sopralluogo per il wizard
-        _sop._prosp_floor_temp = _tempProspFloor;
-        _sop._prosp_href_temp = hrefStr;
-        DB.saveSopralluogo(_sop).then(() => {
-            App.navigate('wizard', {
-                id: _sop.id,
-                room: _currentProspetto,
-                prosp_floor: _tempProspFloor,
-                prosp_href: hrefStr
+        // Naviga al wizard con parametri prospetto
+        // Il wizard leggera' prosp_floor e prosp_href dal hash
+        const room = encodeURIComponent(this._currentProspetto);
+        let wizardHash = `wizard/${this.sopId}/${room}`;
+        // Aggiungi params come query dopo il hash
+        const extras = [];
+        if (this._tempProspFloor) extras.push(`prosp_floor=${encodeURIComponent(this._tempProspFloor)}`);
+        if (hrefStr) extras.push(`prosp_href=${encodeURIComponent(hrefStr)}`);
+        if (extras.length > 0) wizardHash += '?' + extras.join('&');
+
+        App.navigate(wizardHash);
+    },
+
+    // ========== STATO PROSPETTO ==========
+
+    _renderProspStatus(container, sop) {
+        const esc = UI._escapeHtml;
+        let html = UI.wizardHeader('Stato Prospetto', 'Seleziona lo stato');
+
+        html += UI.buttonGrid([
+            { value: 'accessible', label: 'Accessibile' },
+            { value: 'non_accessibile', label: 'Non Accessibile' },
+            { value: 'non_valutabile', label: 'Non Valutabile' }
+        ], { cols: 3 });
+
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const status = btn.dataset.value;
+                await Events.dispatch('set_room_status', this.sopId, {
+                    room_name: this._currentProspetto,
+                    status: status
+                });
+                UI.toast('Stato aggiornato');
+                this._view = 'entry';
+                this._renderView(container);
             });
         });
     }
-
-    // ===== STATO PROSPETTO =====
-    function _renderProspStatus(container) {
-        container.innerHTML = '';
-        container.appendChild(UI.sectionHeader('Stato Prospetto'));
-        const statuses = [
-            { label: 'Accessibile', value: Config.ROOM_STATUSES.ACCESSIBLE },
-            { label: 'Non Accessibile', value: Config.ROOM_STATUSES.NON_ACCESSIBILE },
-            { label: 'Non Valutabile', value: Config.ROOM_STATUSES.NON_VALUTABILE }
-        ];
-        const grid = UI.buttonGrid(statuses, 3, async (val) => {
-            _sop.room_status[_currentProspetto] = val;
-            if (val !== Config.ROOM_STATUSES.ACCESSIBLE) {
-                const room = _sop.rooms[_currentProspetto];
-                if (room) room.disclaimer_type = val;
-                const nota = prompt('Nota (opzionale):');
-                if (room && nota) room.disclaimer_note = nota;
-            }
-            await DB.saveSopralluogo(_sop);
-            _view = 'entry';
-            _render(container);
-        });
-        container.appendChild(grid);
-    }
-
-    return { render };
-
-})();
+};

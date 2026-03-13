@@ -1,11 +1,11 @@
-const CACHE_NAME = 'testimoniale-v1';
-const ASSETS = [
+const CACHE_NAME = 'testimoniale-v14';
+const ASSETS_TO_CACHE = [
     './',
     './index.html',
-    './manifest.json',
     './css/style.css',
     './js/config.js',
     './js/db.js',
+    './js/events.js',
     './js/photos.js',
     './js/sync.js',
     './js/app.js',
@@ -16,56 +16,92 @@ const ASSETS = [
     './js/views/rooms.js',
     './js/views/wizard.js',
     './js/views/review.js',
+    './js/views/archive.js',
     './js/views/pertinenze.js',
     './js/views/stairs.js',
     './js/views/prospetti.js',
     './js/reports/formatters.js',
+    './js/reports/verbale.js',
+    './manifest.json'
 ];
 
-const ALLOWED_CDN = [
-    'https://telegram.org',
-    'https://unpkg.com',
-    'https://cdnjs.cloudflare.com',
-    'https://fonts.googleapis.com',
-    'https://fonts.gstatic.com',
+// CDN resources to cache for offline DOCX generation
+const CDN_TO_CACHE = [
+    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+    'https://cdn.jsdelivr.net/npm/docx@9.6.0/dist/index.iife.js',
+    'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js'
 ];
 
-self.addEventListener('install', (e) => {
-    e.waitUntil(
+// Install: pre-cache static assets
+self.addEventListener('install', (event) => {
+    event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(ASSETS))
+            .then((cache) => {
+                // Cache local assets first (critical)
+                return cache.addAll(ASSETS_TO_CACHE).then(() => {
+                    // Then try CDN assets (non-critical, may fail offline)
+                    return Promise.allSettled(
+                        CDN_TO_CACHE.map((url) => cache.add(url))
+                    );
+                });
+            })
             .then(() => self.skipWaiting())
     );
 });
 
-self.addEventListener('activate', (e) => {
-    e.waitUntil(
-        caches.keys().then(keys =>
-            Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+// Activate: clean old caches
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((keys) =>
+            Promise.all(
+                keys
+                    .filter((key) => key !== CACHE_NAME)
+                    .map((key) => caches.delete(key))
+            )
         ).then(() => self.clients.claim())
     );
 });
 
-self.addEventListener('fetch', (e) => {
-    const url = new URL(e.request.url);
-    // Solo GET
-    if (e.request.method !== 'GET') return;
-    // Solo same-origin o CDN permessi
-    const isSameOrigin = url.origin === location.origin;
-    const isAllowedCDN = ALLOWED_CDN.some(cdn => url.href.startsWith(cdn));
-    if (!isSameOrigin && !isAllowedCDN) return;
+// Fetch: stale-while-revalidate for static assets
+self.addEventListener('fetch', (event) => {
+    const url = new URL(event.request.url);
 
-    // Stale-while-revalidate
-    e.respondWith(
-        caches.match(e.request).then(cached => {
-            const fetchPromise = fetch(e.request).then(resp => {
-                if (resp && resp.ok) {
-                    const clone = resp.clone();
-                    caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+    // Skip non-GET
+    if (event.request.method !== 'GET') return;
+
+    // Skip cross-origin except allowed CDNs
+    if (url.origin !== location.origin &&
+        !url.href.includes('fonts.googleapis.com') &&
+        !url.href.includes('fonts.gstatic.com') &&
+        !url.href.includes('cdn.jsdelivr.net') &&
+        !url.href.includes('telegram.org')) {
+        return;
+    }
+
+    event.respondWith(
+        caches.match(event.request).then((cached) => {
+            if (cached) {
+                // Serve from cache, update in background
+                fetch(event.request).then((response) => {
+                    if (response && response.status === 200) {
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(event.request, response.clone());
+                        });
+                    }
+                }).catch(() => {});
+                return cached;
+            }
+
+            // Not in cache: fetch from network and cache
+            return fetch(event.request).then((response) => {
+                if (response && response.status === 200) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, clone);
+                    });
                 }
-                return resp;
-            }).catch(() => cached);
-            return cached || fetchPromise;
+                return response;
+            });
         })
     );
 });

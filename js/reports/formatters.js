@@ -1,334 +1,371 @@
-/* ============================================================
- * formatters.js — Generazione testo IDENTICA a reports.py
- * Ogni funzione traduce 1:1 la logica Python del bot originale.
- * ============================================================ */
+/**
+ * formatters.js — Formattazione testi osservazioni e report
+ * Allineato a reports.py format_observation_text()
+ * Single source of truth per stringhe osservazione
+ */
 
-'use strict';
+/**
+ * Formatta il testo di una osservazione
+ * @param {Object} obs - Osservazione
+ * @param {Object} options - {includeVF: bool, vfNumber: number}
+ * @returns {string}
+ */
+function formatObservationText(obs, options = {}) {
+    if (!obs) return '';
 
-const Formatters = (() => {
-
-    // ===== CLEAN TEXT HELPER (identico a clean_text_helper in reports.py) =====
-    function cleanTextHelper(text) {
-        if (!text) return '';
-        let s = String(text);
-        // Rimuove parentesi
-        s = s.replace(/[()]/g, '');
-        // Contrazioni (identiche al bot)
-        const contractions = [
-            [/\bvt verticale\b/gi, 'vt'],
-            [/\boz orizzontale\b/gi, 'oz'],
-            [/\bdg diagonale\b/gi, 'dg'],
-            [/\but ulteriore\b/gi, 'ut'],
-            [/\bdd\b/gi, 'dd'],
-        ];
-        contractions.forEach(([regex, repl]) => { s = s.replace(regex, repl); });
-        return s.trim();
+    // Determina label elemento
+    let elemLabel = '';
+    if (obs.infisso_type) {
+        // Elemento/Varco: tipo + which + location + sub_pos
+        const parts = [obs.infisso_type];
+        if (obs.infisso_which) parts.push(obs.infisso_which);
+        if (obs.infisso_wall || obs.infisso_location) {
+            parts.push(obs.infisso_wall || obs.infisso_location);
+        }
+        if (obs.infisso_sub_pos) parts.push(obs.infisso_sub_pos);
+        elemLabel = parts.join(' ');
+    } else if (obs.balcone_sub) {
+        elemLabel = `Balcone ${obs.balcone_sub}`;
+    } else if (obs.stair_subsection) {
+        // Scale: sotto-sezione + elemento
+        elemLabel = obs.stair_subsection;
+        if (obs.wall) elemLabel += ` ${obs.wall}`;
+        else if (obs.element && obs.element !== 'Pareti') elemLabel += ` ${obs.element}`;
+    } else {
+        elemLabel = obs.wall || obs.element || '';
     }
 
-    // ===== FORMAT OBSERVATION TEXT (identico a format_observation_text in reports.py) =====
-    function formatObservationText(obs, options) {
-        options = options || {};
-        const includeVf = options.includeVf || false;
-        const vfNumber = options.vfNumber || 0;
-        const includeElement = options.includeElement !== false;
+    // Deduplicazione elemento/posizione (evita "Parete A Parete A lato sx")
+    // Se la posizione contiene l'elemento, non ripetere
+    let positions = obs.position || '';
+    if (positions && elemLabel) {
+        positions = positions.replace(new RegExp(`^${escapeRegex(elemLabel)}\\s*`, 'i'), '');
+    }
 
-        if (!obs) return '';
+    // Controparete
+    if (obs.has_counterwall) {
+        elemLabel += ' con controparete';
+    }
 
-        // Element label
-        const rawElement = (obs.element === 'Intradosso') ? 'Intradosso superiore' : obs.element;
-        let elemLabel = '';
-        if (includeElement) {
-            if (obs.infisso_type && obs.element !== obs.infisso_type) {
-                // Elemento/Varco: usa infisso_type come label
-                let infLabel = obs.infisso_type;
-                if (obs.infisso_wall) infLabel += ` ${obs.infisso_wall}`;
-                if (obs.infisso_which) infLabel += ` ${obs.infisso_which}`;
-                elemLabel = infLabel;
-            } else if (obs.stair_subsection) {
-                // Scala: element senza subsection (subsection aggiunto dopo)
-                elemLabel = obs.wall || rawElement || '';
-            } else {
-                elemLabel = obs.wall || rawElement || '';
-            }
+    // Carta da parati (CDP)
+    if (obs.has_cdp) {
+        elemLabel += ' carta da parati';
+    }
+
+    // NDR
+    if (obs.phenomenon === 'NDR' || obs.phenomenon === 'Nulla da Rilevare') {
+        let text = `${elemLabel} NDR (per quanto visibile)`;
+        if (options.includeVF && options.vfNumber) {
+            text += ` (V.F. ${options.vfNumber})`;
         }
-
-        // Posizione
-        let posStr = obs.position || '';
-
-        // Deduplica element/position (come bot)
-        if (elemLabel && posStr && posStr.toLowerCase().includes(elemLabel.toLowerCase())) {
-            posStr = posStr.replace(new RegExp(elemLabel, 'gi'), '').trim();
-            posStr = posStr.replace(/^,\s*|,\s*$/g, '').trim();
-        }
-
-        // Infisso sub pos
-        if (obs.infisso_sub_pos) {
-            posStr = posStr ? `${posStr}, ${obs.infisso_sub_pos}` : obs.infisso_sub_pos;
-        }
-
-        // Fenomeno
-        const phenomenon = obs.phenomenon || '';
-
-        // INGOMBRA early return
-        if (phenomenon === 'INGOMBRA' || phenomenon === 'ingombra') {
-            let text = elemLabel ? `${elemLabel} ingombra` : 'ingombra';
-            if (includeVf && vfNumber > 0) text += ` V.F. ${vfNumber}`;
-            if (obs.stair_subsection && includeElement && text) {
-                text = `${obs.stair_subsection}: ${text}`;
-            }
-            return text;
-        }
-
-        // PARZIALMENTE INGOMBRA
-        if (phenomenon === 'PARZIALMENTE INGOMBRA') {
-            let text = elemLabel ? `${elemLabel} parzialmente ingombra` : 'parzialmente ingombra';
-            if (includeVf && vfNumber > 0) text += ` V.F. ${vfNumber}`;
-            if (obs.stair_subsection && includeElement && text) {
-                text = `${obs.stair_subsection}: ${text}`;
-            }
-            return text;
-        }
-
-        // NON VISIBILE
-        if (phenomenon === 'NON VISIBILE' || obs.non_visibile) {
-            let text = elemLabel ? `${elemLabel} non visibile` : 'non visibile';
-            if (includeVf && vfNumber > 0) text += ` V.F. ${vfNumber}`;
-            if (obs.stair_subsection && includeElement && text) {
-                text = `${obs.stair_subsection}: ${text}`;
-            }
-            return text;
-        }
-
-        // NDR
-        if (phenomenon === 'NDR') {
-            let text = elemLabel ? `${elemLabel} NDR` : 'NDR';
-            if (obs.stair_subsection && includeElement && text) {
-                text = `${obs.stair_subsection}: ${text}`;
-            }
-            return text;
-        }
-
-        // Normal defect
-        const parts = [];
-
-        // Element
-        if (elemLabel) parts.push(elemLabel);
-
-        // Counterwall
-        if (obs.has_counterwall) parts.push('controparete');
-
-        // CDP
-        if (obs.has_cdp) parts.push('carta da parati');
-
-        // Position
-        if (posStr) parts.push(posStr);
-
-        // Phenomenon (lowercase + cleanTextHelper, come bot)
-        const phen = cleanTextHelper(phenomenon).toLowerCase();
-        if (phen) parts.push(phen);
-
-        // Specifics (lowercase + cleanTextHelper)
-        const specifics = obs.specifics || [];
-        if (specifics.length > 0) {
-            const sSpec = cleanTextHelper(specifics.join(', ')).toLowerCase();
-            if (sSpec) parts.push(sSpec);
-        }
-
-        // Attributes (lowercase + cleanTextHelper)
-        const attributes = obs.attributes || [];
-        if (attributes.length > 0) {
-            const sAttrs = cleanTextHelper(attributes.join(', ')).toLowerCase();
-            if (sAttrs) parts.push(sAttrs);
-        }
-
-        // Prosecutions
-        const prosecutions = obs.prosecutions || [];
-        if (prosecutions.length > 0) {
-            parts.push(`in prosecuzione su ${prosecutions.join(', ')}`);
-        }
-
-        // Notes (filtro ingombra, come bot)
-        const cleanedNotes = cleanTextHelper(obs.notes || '');
-        if (cleanedNotes && !cleanedNotes.toLowerCase().includes('ingombra')) {
-            parts.push(cleanedNotes);
-        }
-
-        // V.F.
-        if (includeVf && vfNumber > 0) {
-            parts.push(`V.F. ${vfNumber}`);
-        }
-
-        // Assembla
-        let text = parts.filter(p => p).join(' ');
-
-        // Stair subsection prefix
-        if (obs.stair_subsection && includeElement && text) {
-            text = `${obs.stair_subsection}: ${text}`;
-        }
-
-        // Prospetto floor/href
-        if (obs.prosp_floor && text) {
-            text += ` (${obs.prosp_floor}`;
-            if (obs.prosp_href) text += `, ${obs.prosp_href}`;
-            text += ')';
-        }
-
         return text;
     }
 
-    // ===== GROUP OBSERVATIONS BY ELEMENT (identico a group_observations_by_element in reports.py) =====
-    function groupObservationsByElement(observations) {
-        if (!observations || observations.length === 0) return [];
+    // INGOMBRA
+    if (obs.phenomenon === 'INGOMBRA') {
+        return `${elemLabel} ingombra`;
+    }
 
-        const lines = [];
-        const groups = {};
-        let vfCounter = 0;
+    // NON VISIBILE
+    if (obs.phenomenon === 'NON VISIBILE') {
+        return `${elemLabel} non visibile`;
+    }
 
-        // Raggruppa per chiave composta
-        for (const obs of observations) {
-            if (obs.phenomenon === 'NDR') continue; // NDR gestiti separatamente
-            if (obs.element === 'Intera Sotto-sezione' && obs.phenomenon === 'NDR') continue;
+    // PARZIALMENTE INGOMBRA (senza difetto)
+    if (obs.phenomenon === 'PARZIALMENTE INGOMBRA') {
+        return `${elemLabel} parzialmente ingombra`;
+    }
 
-            vfCounter++;
-            const key = _groupKey(obs);
-            if (!groups[key]) groups[key] = [];
-            groups[key].push({ obs, vfNum: vfCounter });
+    // NESSUN DIFETTO
+    if (obs.phenomenon === 'NESSUN DIFETTO') {
+        return `${elemLabel} nessun difetto rilevato`;
+    }
+
+    // Nessun fenomeno
+    if (!obs.phenomenon) return elemLabel;
+
+    // Standard observation
+    const parts = [];
+    parts.push(elemLabel);
+
+    // Posizione
+    if (positions) {
+        parts.push(positions);
+    }
+
+    // Fenomeno
+    parts.push(obs.phenomenon);
+
+    // Specifiche
+    if (obs.specifics && obs.specifics.length > 0) {
+        parts.push(obs.specifics.join(' '));
+    }
+
+    // Attributi
+    if (obs.attributes && obs.attributes.length > 0) {
+        parts.push(obs.attributes.join(' '));
+    }
+
+    // Prosecuzione
+    if (obs.prosecutions && obs.prosecutions.length > 0) {
+        parts.push('prosegue su ' + obs.prosecutions.join(', '));
+    }
+
+    // Note (aggiungere nel testo come il bot)
+    if (obs.notes && obs.notes !== 'Parzialmente Ingombra') {
+        parts.push(`(${obs.notes})`);
+    }
+
+    let text = parts.join(' ');
+    // Capitalize first letter
+    text = text.charAt(0).toUpperCase() + text.slice(1);
+
+    // V.F.
+    if (options.includeVF && options.vfNumber) {
+        text += ` (V.F. ${options.vfNumber})`;
+    }
+
+    return text;
+}
+
+/**
+ * Raggruppa osservazioni per elemento (come reports.py group_observations_by_element)
+ * @param {Array} observations
+ * @returns {Object} { elemKey: [{ obs, vf, index }] }
+ */
+function groupObservationsByElement(observations) {
+    if (!observations || observations.length === 0) return {};
+
+    // V.F. renumbering
+    let vfIndex = 0;
+    const vfMap = [];
+    for (const obs of observations) {
+        if (obs.photo_id) {
+            vfIndex++;
+            vfMap.push(vfIndex);
+        } else {
+            vfMap.push(0);
         }
+    }
 
-        // Genera testo per ogni gruppo
-        for (const key in groups) {
-            const items = groups[key];
-            const texts = items.map((item, idx) => {
-                let text = formatObservationText(item.obs, {
-                    includeVf: true,
-                    vfNumber: item.vfNum,
-                    includeElement: idx === 0  // Solo primo del gruppo ha l'elemento
+    // Raggruppa
+    const groups = {};
+    for (let i = 0; i < observations.length; i++) {
+        const obs = observations[i];
+        let elemKey;
+        if (obs.stair_subsection) {
+            elemKey = obs.stair_subsection;
+        } else {
+            elemKey = obs.wall || obs.balcone_sub || obs.infisso_type || obs.element || '?';
+        }
+        if (!groups[elemKey]) groups[elemKey] = [];
+        groups[elemKey].push({ obs, vf: vfMap[i], index: i });
+    }
+
+    return groups;
+}
+
+/**
+ * Genera testo raggruppato per un vano con V.F.
+ * @param {Array} observations
+ * @returns {string}
+ */
+function generateRoomText(observations) {
+    if (!observations || observations.length === 0) return '';
+
+    const groups = groupObservationsByElement(observations);
+    const lines = [];
+
+    for (const [elemKey, items] of Object.entries(groups)) {
+        // Gestione NDR pareti individuali: accorpa
+        const ndrItems = items.filter(it => it.obs.phenomenon === 'NDR');
+        const nonNdrItems = items.filter(it => it.obs.phenomenon !== 'NDR');
+
+        const parts = [];
+
+        // NDR accorpati
+        if (ndrItems.length > 1 && ndrItems.length === items.length) {
+            // Tutti NDR → accorpa
+            const walls = ndrItems.map(it => it.obs.wall || elemKey).join(', ');
+            parts.push(`${walls} NDR (per quanto visibile)`);
+        } else {
+            // Mix o singoli
+            for (const { obs, vf } of items) {
+                const text = formatObservationText(obs, {
+                    includeVF: vf > 0,
+                    vfNumber: vf
                 });
-                // Lowercase primo carattere per i successivi (come bot)
-                if (idx > 0 && text) {
-                    text = text.charAt(0).toLowerCase() + text.slice(1);
-                }
-                return text;
-            });
-            lines.push(texts.filter(t => t).join('; '));
-        }
-
-        // NDR: raggruppa pareti individuali (come bot)
-        const ndrObs = observations.filter(o => o.phenomenon === 'NDR' && o.element !== 'Intera Sotto-sezione');
-        if (ndrObs.length > 0) {
-            const ndrByBase = {};
-            for (const obs of ndrObs) {
-                const el = obs.element || '';
-                const m = el.match(/^Parete\s+([A-Z])$/);
-                if (m) {
-                    if (!ndrByBase['Pareti']) ndrByBase['Pareti'] = [];
-                    ndrByBase['Pareti'].push({ letter: m[1], obs });
-                } else {
-                    const key = el || 'Other';
-                    if (!ndrByBase[key]) ndrByBase[key] = [];
-                    ndrByBase[key].push({ obs });
-                }
-            }
-
-            for (const base in ndrByBase) {
-                const items = ndrByBase[base];
-                if (base === 'Pareti' && items.length > 0 && items[0].letter) {
-                    // Accorpa: "Pareti A, C, D NDR (per quanto visibile)"
-                    const letters = items.map(p => p.letter).sort().join(', ');
-                    lines.push(`Pareti ${letters} NDR (per quanto visibile)`);
-                } else {
-                    items.forEach(item => {
-                        lines.push(formatObservationText(item.obs, { includeElement: true }));
-                    });
-                }
+                parts.push(text);
             }
         }
 
-        // Intera Sotto-sezione NDR (scale)
-        const subNdrSet = new Set();
-        for (const obs of observations) {
-            if (obs.element === 'Intera Sotto-sezione' && obs.phenomenon === 'NDR' && obs.stair_subsection) {
-                subNdrSet.add(obs.stair_subsection);
+        lines.push(parts.join(', '));
+    }
+
+    return lines.join(';\n') + (lines.length > 0 ? ';' : '');
+}
+
+/**
+ * Genera testo cappello
+ * @param {Object} sop - Sopralluogo
+ * @returns {string}
+ */
+function generateCappelloText(sop) {
+    if (sop.custom_cappello) return sop.custom_cappello;
+
+    const lines = [];
+    const date = new Date(sop.start_time || sop.created_at);
+    const dateStr = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
+    const timeStr = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+    lines.push(`In data ${dateStr} alle ore ${timeStr}, i sottoscritti:`);
+
+    // Metro C tecnico
+    if (sop.attendees?.metro_tech) {
+        lines.push(`- ${sop.attendees.metro_tech}, per Metro C S.p.A.`);
+    }
+
+    // Collaboratori
+    const coll = sop.attendees?.metro_coll;
+    if (Array.isArray(coll) && coll.length > 0) {
+        for (const c of coll) {
+            if (c) lines.push(`- ${c}, collaboratore Metro C S.p.A.`);
+        }
+    }
+
+    // Roma Metropolitane
+    if (sop.rm_presente !== false && sop.attendees?.rm) {
+        lines.push(`- ${sop.attendees.rm}, per Roma Metropolitane S.r.l.`);
+    }
+
+    // Proprietario / Amministratore
+    if (sop.owner) {
+        if (sop.owner.type === 'persona' && sop.owner.name) {
+            const isPC = CONFIG.isPartiComuni(sop.unit_name || sop.unit_type);
+            const role = isPC ? 'Amministratore/Delegato' : 'Proprietario';
+            lines.push(`- ${sop.owner.name}, ${role}`);
+        } else if (sop.owner.type === 'societa') {
+            if (sop.owner.company_name) {
+                lines.push(`- ${sop.owner.company_name}`);
+            }
+            if (sop.owner.company_admin) {
+                const isPC = CONFIG.isPartiComuni(sop.unit_name || sop.unit_type);
+                const role = isPC ? 'Amministratore/Delegato' : 'Amministratore della società';
+                lines.push(`  ${sop.owner.company_admin}, ${role}`);
             }
         }
-        const sortedSubNdr = Array.from(subNdrSet).sort();
-        for (const ss of sortedSubNdr) {
-            const hasOther = observations.some(o =>
-                o.stair_subsection === ss &&
-                !(o.element === 'Intera Sotto-sezione' && o.phenomenon === 'NDR')
-            );
-            const ndrText = hasOther ? `${ss}: NDR per i restanti elementi` : `${ss}: NDR`;
-            lines.unshift(ndrText);
+    }
+
+    lines.push('');
+    lines.push(`procedono al sopralluogo dell'immobile sito in ${sop.building_address || '___'}, ` +
+        `Fabbricato ${sop.building_code || '___'}, ${sop.floor || '___'}, ` +
+        `${sop.unit_name || sop.unit_type || '___'}.`);
+
+    return lines.join('\n');
+}
+
+/**
+ * Genera testo chiusura
+ * @param {Object} sop - Sopralluogo
+ * @returns {string}
+ */
+function generateChiusuraText(sop) {
+    if (sop.custom_chiusura) return sop.custom_chiusura;
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+    return `Il presente verbale viene redatto in contraddittorio e firmato dalle parti alle ore ${timeStr}. ` +
+        `Copia del presente verbale viene consegnata al proprietario/conduttore dell'unità immobiliare.`;
+}
+
+/**
+ * Genera preview completa del verbale
+ * @param {Object} sop
+ * @returns {string}
+ */
+function generateVerbalePreview(sop) {
+    const rooms = sop.rooms || {};
+    const roomNames = Object.keys(rooms);
+    const lines = [];
+
+    // Cappello
+    lines.push('=== TESTO INTRODUTTIVO ===');
+    lines.push(generateCappelloText(sop));
+    lines.push('');
+
+    // Vani
+    for (const roomName of roomNames) {
+        const room = rooms[roomName];
+        const finishLabel = room.finishes === 'Controsoffitto' ? 'C/S' : '';
+        lines.push(`--- ${roomName}${finishLabel ? ', ' + finishLabel : ''} ---`);
+
+        if (room.status !== 'accessible') {
+            lines.push(`NOTA: ${CONFIG.ROOM_STATUS_LABELS[room.status] || room.status}`);
         }
 
-        return lines;
-    }
-
-    function _groupKey(obs) {
-        const parts = [
-            obs.stair_subsection || '',
-            obs.element || '',
-            obs.wall || obs.infisso_type || ''
-        ];
-        return parts.join('|');
-    }
-
-    // ===== GENERATE ROOM TEXT (testo completo per un vano) =====
-    function generateRoomText(room) {
-        const observations = DB.getRoomObservations(room);
-        const lines = groupObservationsByElement(observations);
-        return lines.join(';\n');
-    }
-
-    // ===== GENERATE CAPPELLO TEXT (identico a _generate_cappello_text in bot.py) =====
-    function generateCappelloText(sop) {
-        if (sop.custom_cappello) return sop.custom_cappello;
-
-        const d = sop.start_time ? new Date(sop.start_time) : new Date();
-        const dateStr = d.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
-        const timeStr = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-
-        const lines = [];
-        lines.push(`In data ${dateStr} alle ore ${timeStr}, presso l'immobile sito in ${sop.building_address || '___'}, si procede al sopralluogo dell'unita immobiliare ${sop.unit_type || ''} ${sop.unit_name || ''}.`);
-
-        if (sop.owner && sop.owner.name) {
-            const ownerStr = sop.owner.type === 'societa' ?
-                `${sop.owner.name}${sop.owner.admin ? ', nella persona di ' + sop.owner.admin : ''}` :
-                sop.owner.name;
-            lines.push(`Proprietario: ${ownerStr}.`);
+        if (room.manual_text) {
+            lines.push(room.manual_text);
+        } else {
+            const observations = room.observations || [];
+            if (observations.length === 0) {
+                lines.push('Nessuna osservazione.');
+            } else {
+                lines.push(generateRoomText(observations));
+            }
         }
+        lines.push('');
+    }
 
-        const presenti = [];
-        if (sop.attendees_metro_tech) presenti.push(`Tecnico Metro C: ${sop.attendees_metro_tech}`);
-        if (sop.attendees_metro_coll && sop.attendees_metro_coll.length > 0) {
-            presenti.push(`Collaboratori: ${sop.attendees_metro_coll.join(', ')}`);
+    // Allontana/Rientra events
+    if (sop.allontana_events && sop.allontana_events.length > 0) {
+        lines.push('--- INTERRUZIONI ---');
+        for (const ev of sop.allontana_events) {
+            lines.push(`[${ev.time}] ${ev.type}: ${ev.text}`);
         }
-        if (sop.rm_presente && sop.attendees_rm) presenti.push(`Roma Metropolitane: ${sop.attendees_rm}`);
-        if (presenti.length > 0) lines.push(`Figure presenti: ${presenti.join('; ')}.`);
-
-        return lines.join('\n\n');
+        lines.push('');
     }
 
-    // ===== GENERATE CHIUSURA TEXT (identico a _generate_chiusura_text in bot.py) =====
-    function generateChiusuraText(sop) {
-        if (sop.custom_chiusura) return sop.custom_chiusura;
-
-        const d = new Date();
-        const dateStr = d.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
-        const timeStr = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-
-        return `Le operazioni di sopralluogo si concludono in data ${dateStr} alle ore ${timeStr}. ` +
-            `Il presente verbale, redatto in contraddittorio, viene sottoscritto dalle parti intervenute.`;
+    // Note globali
+    if (Array.isArray(sop.global_notes) && sop.global_notes.length > 0) {
+        lines.push('--- NOTE ---');
+        for (const note of sop.global_notes) {
+            const prefix = note.room_name ? `[${note.room_name}] ` : '';
+            lines.push(`${prefix}${note.text}`);
+        }
+        lines.push('');
     }
 
-    // ===== PUBLIC API =====
-    return {
-        cleanTextHelper,
-        formatObservationText,
-        groupObservationsByElement,
-        generateRoomText,
-        generateCappelloText,
-        generateChiusuraText
-    };
+    // Chiusura
+    lines.push('=== TESTO DI CHIUSURA ===');
+    lines.push(generateChiusuraText(sop));
+    lines.push('');
 
-})();
+    // Firme
+    lines.push('--- FIRME ---');
+    const signers = sop.signers || {};
+    lines.push(`Metro C: ${signers.metro_tech || '________________'}`);
+    if (sop.rm_presente !== false) {
+        lines.push(`Roma Metropolitane: ${signers.rm || '________________'}`);
+    }
+    lines.push(`Proprietario/Delegato: ________________`);
+
+    return lines.join('\n');
+}
+
+/** Escape regex special chars */
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ========== NAMESPACE ==========
+// Le viste usano Formatters.xxx come namespace
+const Formatters = {
+    formatObservationText,
+    groupObservationsByElement,
+    generateRoomText,
+    generateCappelloText,
+    generateChiusuraText,
+    generateVerbalePreview,
+    escapeRegex
+};

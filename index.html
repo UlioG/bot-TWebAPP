@@ -2,56 +2,77 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="rgb(128, 0, 0)">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="rgb(128,0,0)">
-    <title>Testimoniale Metro C</title>
+    <title>Testimoniale</title>
     <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Telegram WebApp SDK -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- DOCX generation -->
-    <script src="https://unpkg.com/docx@9.6.0/build/index.iife.js"></script>
-    <!-- FileSaver -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <link rel="stylesheet" href="./css/style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- docx library for in-browser DOCX generation (cached by SW for offline) -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@9.6.0/dist/index.iife.js"></script>
+    <!-- FileSaver.js for cross-browser file download -->
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 </head>
 <body>
-    <header id="app-header">
-        <button id="btn-back" class="header-btn hidden" aria-label="Indietro">&#8592;</button>
-        <h1 id="header-title">Testimoniale</h1>
-        <button id="btn-home" class="header-btn hidden" aria-label="Home">&#8962;</button>
-        <div id="sync-indicator" class="sync-dot" title="Stato sync"></div>
-    </header>
-
-    <main id="app-content"></main>
-
-    <div id="toast" class="toast hidden"></div>
-    <div id="modal-overlay" class="modal-overlay hidden">
-        <div id="modal-content" class="modal-content"></div>
+    <!-- Header -->
+    <div id="app-header">
+        <div id="header-title">Testimoniale</div>
+        <div class="header-bottom-row">
+            <button class="header-btn" id="btn-home" title="Torna alla Home">🏠</button>
+            <button class="header-btn hidden" id="btn-back">&#8249; Indietro</button>
+            <div class="sync-status" id="sync-indicator">
+                <div class="sync-dot offline"></div>
+                <span class="sync-label">Offline</span>
+            </div>
+            <div id="header-right-slot"></div>
+        </div>
     </div>
 
-    <!-- Core -->
+    <!-- Main Content -->
+    <div id="app-content"></div>
+
+    <!-- Toast -->
+    <div class="toast hidden" id="toast"></div>
+
+    <!-- Modal -->
+    <div class="modal-overlay hidden" id="modal-overlay">
+        <div class="modal-content" id="modal-content"></div>
+    </div>
+
+    <!-- Core modules (order matters: no ES modules to keep GitHub Pages simple) -->
     <script src="./js/config.js"></script>
     <script src="./js/db.js"></script>
+    <script src="./js/events.js"></script>
     <script src="./js/photos.js"></script>
     <script src="./js/sync.js"></script>
-    <!-- Views -->
+
+    <!-- UI Components -->
     <script src="./js/views/components.js"></script>
+
+    <!-- Views -->
     <script src="./js/views/home.js"></script>
     <script src="./js/views/setup.js"></script>
     <script src="./js/views/anagrafica.js"></script>
     <script src="./js/views/rooms.js"></script>
     <script src="./js/views/wizard.js"></script>
     <script src="./js/views/review.js"></script>
+    <script src="./js/views/archive.js"></script>
     <script src="./js/views/pertinenze.js"></script>
     <script src="./js/views/stairs.js"></script>
     <script src="./js/views/prospetti.js"></script>
+
     <!-- Reports -->
     <script src="./js/reports/formatters.js"></script>
-    <!-- App (last) -->
+    <script src="./js/reports/verbale.js"></script>
+
+    <!-- App Router (must be last) -->
     <script src="./js/app.js"></script>
 </body>
 </html>
