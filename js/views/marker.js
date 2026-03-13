@@ -181,29 +181,31 @@ const MarkerView = {
                 <div id="marker-header" style="
                     position: relative;
                     padding: 0 16px;
-                    padding-top: calc(env(safe-area-inset-top, 0px) + 20px);
-                    padding-bottom: 2px;
-                    min-height: 101px;
+                    padding-top: calc(env(safe-area-inset-top, 0px) + 44px);
+                    padding-bottom: 4px;
+                    min-height: 110px;
                     background: rgba(0,0,0,0.9); color: #fff;
                     font-size: 14px; flex-shrink: 0;
-                    display: flex; align-items: flex-end; justify-content: space-between;
+                    display: flex; flex-direction: column; justify-content: flex-end;
                 ">
                     <div id="marker-instruction" style="
-                        position: absolute; left: 50%; top: 42px;
-                        transform: translate(-50%, -50%);
+                        text-align: center;
                         font-size: 14px; color: rgba(255,255,255,0.75);
                         white-space: nowrap; pointer-events: none;
+                        margin-bottom: 6px;
                     ">
                         Seleziona un difetto, poi tocca la foto
                     </div>
-                    <button id="marker-close" style="
-                        background: none; border: none; color: #fff; font-size: 24px;
-                        padding: 2px 12px; cursor: pointer;
-                    ">&times;</button>
-                    <button id="marker-save" style="
-                        background: rgb(128,0,0); border: none; color: #fff; font-size: 13px;
-                        padding: 6px 14px; border-radius: 8px; cursor: pointer; font-weight: 600;
-                    ">SALVA</button>
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <button id="marker-close" style="
+                            background: none; border: none; color: #fff; font-size: 24px;
+                            padding: 2px 12px; cursor: pointer;
+                        ">&times;</button>
+                        <button id="marker-save" style="
+                            background: rgb(128,0,0); border: none; color: #fff; font-size: 13px;
+                            padding: 6px 14px; border-radius: 8px; cursor: pointer; font-weight: 600;
+                        ">SALVA</button>
+                    </div>
                 </div>
 
                 <!-- Photo workspace -->
