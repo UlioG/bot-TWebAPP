@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="rgb(128,0,0)">
+    <title>Testimoniale Metro C</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- DOCX generation -->
+    <script src="https://unpkg.com/docx@9.6.0/build/index.iife.js"></script>
+    <!-- FileSaver -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+    <header id="app-header">
+        <button id="btn-back" class="header-btn hidden" aria-label="Indietro">&#8592;</button>
+        <h1 id="header-title">Testimoniale</h1>
+        <button id="btn-home" class="header-btn hidden" aria-label="Home">&#8962;</button>
+        <div id="sync-indicator" class="sync-dot" title="Stato sync"></div>
+    </header>
+
+    <main id="app-content"></main>
+
+    <div id="toast" class="toast hidden"></div>
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div id="modal-content" class="modal-content"></div>
+    </div>
+
+    <!-- Core -->
+    <script src="./js/config.js"></script>
+    <script src="./js/db.js"></script>
+    <script src="./js/photos.js"></script>
+    <script src="./js/sync.js"></script>
+    <!-- Views -->
+    <script src="./js/views/components.js"></script>
+    <script src="./js/views/home.js"></script>
+    <script src="./js/views/setup.js"></script>
+    <script src="./js/views/anagrafica.js"></script>
+    <script src="./js/views/rooms.js"></script>
+    <script src="./js/views/wizard.js"></script>
+    <script src="./js/views/review.js"></script>
+    <script src="./js/views/pertinenze.js"></script>
+    <script src="./js/views/stairs.js"></script>
+    <script src="./js/views/prospetti.js"></script>
+    <!-- Reports -->
+    <script src="./js/reports/formatters.js"></script>
+    <!-- App (last) -->
+    <script src="./js/app.js"></script>
+</body>
+</html>
