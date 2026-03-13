@@ -35,7 +35,8 @@ const HomeView = {
         if (inCorso.length > 0) {
             let cells = '';
             for (const sop of inCorso) {
-                cells += this._buildSopCell(sop, '🏗️', true, false);
+                const icon = sop.interrupted ? '⏸️' : '🏗️';
+                cells += this._buildSopCell(sop, icon, true, false);
             }
             html += UI.section('IN CORSO', cells);
         }

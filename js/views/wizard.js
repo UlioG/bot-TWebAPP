@@ -32,6 +32,11 @@ const WizardView = {
         const isStair = room && CONFIG.isStairRoom(room);
         const isProsp = CONFIG.isProspettoRoom(this.roomName);
 
+        // Avviso se il vano ha testo custom nel riepilogo
+        if (room && room.custom_room_text) {
+            UI.toast('\u26A0\uFE0F Attenzione: le modifiche manuali al testo del vano nel riepilogo verranno perse', 4000);
+        }
+
         // Reset wizard state
         this.obs = this._emptyObs();
 
@@ -64,6 +69,7 @@ const WizardView = {
 
         switch (this.step) {
             case 'stair_subsection': return this._renderStairSubsection(container);
+            case 'stair_gradino': return this._renderStairGradino(container);
             case 'element_prospetto': return this._renderElementProspetto(container);
             case 'element': return this._renderElement(container);
             case 'wall': return this._renderWall(container);
@@ -96,6 +102,7 @@ const WizardView = {
 
         const prevMap = {
             'stair_subsection': null,
+            'stair_gradino': 'element',
             'element_prospetto': null,
             'element': null,
             'wall': isStair ? 'stair_subsection' : (isProsp ? 'element_prospetto' : 'element'),
@@ -110,7 +117,7 @@ const WizardView = {
             'infisso_sub_pos': 'infisso_which',
             'position': 'pre_check',
             'position_elemento': 'position',
-            'phenomenon': elem === 'Elemento/Varco' ? 'pre_check' : 'position',
+            'phenomenon': (elem === 'Elemento/Varco' || (CONFIG.STAIR_GRADINO_ELEMENTS && CONFIG.STAIR_GRADINO_ELEMENTS.includes(elem))) ? 'pre_check' : 'position',
             'specifics': 'phenomenon',
             'details': 'specifics',
             'prosecution': 'details',
@@ -129,6 +136,19 @@ const WizardView = {
         }
     },
 
+    /**
+     * Determina lo step dopo pre_check:
+     * - Elemento/Varco: salta position, va a phenomenon
+     * - Pedata/Sottogrado: position gia' impostata nello step gradino, va a phenomenon
+     * - Tutti gli altri: va a position
+     */
+    _afterPreCheckStep() {
+        const elem = this.obs.element;
+        if (elem === 'Elemento/Varco') return 'phenomenon';
+        if (CONFIG.STAIR_GRADINO_ELEMENTS && CONFIG.STAIR_GRADINO_ELEMENTS.includes(elem)) return 'phenomenon';
+        return 'position';
+    },
+
     _preCheckBackTarget() {
         const elem = this.obs.element;
         if (elem === 'Pareti') return this.obs.has_cdp !== null ? 'cdp' : 'counterwall';
@@ -136,6 +156,8 @@ const WizardView = {
             return this.obs.balcone_sub && this.obs.balcone_sub.startsWith('Parete') ? 'counterwall' : 'balcone_sub';
         }
         if (elem === 'Elemento/Varco') return 'infisso_sub_pos';
+        // Pedata/Sottogrado: torna a stair_gradino
+        if (CONFIG.STAIR_GRADINO_ELEMENTS && CONFIG.STAIR_GRADINO_ELEMENTS.includes(elem)) return 'stair_gradino';
         return this.obs.stair_subsection ? 'stair_subsection' : 'element';
     },
 
@@ -175,6 +197,44 @@ const WizardView = {
                 this.renderStep();
             });
         });
+    },
+
+    // ========== STAIR GRADINO (Pedata/Sottogrado) ==========
+
+    _renderStairGradino(container) {
+        UI.setTitle('Quale gradino?');
+        const elemLabel = this.obs.element; // 'Pedata' o 'Sottogrado'
+
+        let html = this._header(elemLabel, 'Indica quale gradino e direzione');
+        html += `<div style="padding: 0 16px;">
+            ${UI.formInput({
+                label: 'Gradino',
+                placeholder: 'Es. 3\u00B0 a salire, ultimo a scendere',
+                id: 'field-gradino'
+            }).trim()}
+        </div>`;
+        html += `<div style="padding: 16px;">
+            <button class="btn btn-primary" id="btn-gradino-ok">Avanti</button>
+        </div>`;
+        html += this._backBtn();
+        container.innerHTML = html;
+
+        // Focus sull'input
+        const input = document.getElementById('field-gradino');
+        if (input) setTimeout(() => input.focus(), 100);
+
+        document.getElementById('btn-gradino-ok')?.addEventListener('click', () => {
+            const val = (input?.value || '').trim();
+            if (!val) {
+                UI.toast('Inserisci il gradino');
+                return;
+            }
+            this.obs.position = val;
+            this.step = 'pre_check';
+            this.renderStep();
+        });
+
+        this._bindBack();
     },
 
     // ========== ELEMENT (PROSPETTI) ==========
@@ -223,6 +283,7 @@ const WizardView = {
                 if (this.obs.element === 'Pareti') this.step = 'wall';
                 else if (this.obs.element === 'Balcone') this.step = 'balcone_sub';
                 else if (this.obs.element === 'Elemento/Varco') this.step = 'infisso_type';
+                else if (CONFIG.STAIR_GRADINO_ELEMENTS && CONFIG.STAIR_GRADINO_ELEMENTS.includes(this.obs.element)) this.step = 'stair_gradino';
                 else this.step = 'pre_check';
                 this.renderStep();
             });
@@ -371,11 +432,11 @@ const WizardView = {
                 } else if (val === 'PARZIALE') {
                     this.obs.parz_ingombra = true;
                     this.obs.notes = 'Parzialmente Ingombra';
-                    this.step = this.obs.element === 'Elemento/Varco' ? 'phenomenon' : 'position';
+                    this.step = this._afterPreCheckStep();
                     this.renderStep();
                 } else {
                     // PROCEDI
-                    this.step = this.obs.element === 'Elemento/Varco' ? 'phenomenon' : 'position';
+                    this.step = this._afterPreCheckStep();
                     this.renderStep();
                 }
             });

@@ -1,11 +1,11 @@
 /**
- * anagrafica.js - Fase 1b: Proprietario, figure presenti, RM toggle, Cappello
- * Flusso: Proprietario -> RM Presente -> Figure Presenti -> Cappello Preview -> Procedi
- * PC: "Amministratore/Delegato" al posto di "Amministratore"
+ * anagrafica.js - Fase 1b: Schermata unica Anagrafica
+ * Sezioni: Proprietario (+ altri presenti), Tecnico Metro C (+ collaboratori),
+ *          Roma Metropolitane, poi Cappello Preview
  */
 const AnagraficaView = {
     sopId: null,
-    _subStep: 'owner', // owner | rm_toggle | figures | cappello
+    _subStep: 'main', // main | cappello | cappello_edit
 
     async render(container, params) {
         this.sopId = params[0];
@@ -17,13 +17,14 @@ const AnagraficaView = {
         UI.setTitle('Anagrafica');
         UI.showBack(true, () => App.navigate(`setup/${this.sopId}`));
 
-        this._subStep = 'owner';
-        this._renderOwnerStep(container, sop);
+        this._subStep = 'main';
+        this._renderMain(container, sop);
     },
 
-    // ========== STEP 1: PROPRIETARIO ==========
+    // ========== SCHERMATA UNICA ANAGRAFICA ==========
 
-    _renderOwnerStep(container, sop) {
+    _renderMain(container, sop) {
+        UI.setTitle('Anagrafica');
         const isPC = CONFIG.isPartiComuni(sop);
         const esc = UI._escapeHtml;
 
@@ -37,8 +38,31 @@ const AnagraficaView = {
             { label: 'Piano', value: sop.floor || '' }
         ]);
 
-        // Tipo proprietario
+        // Phase tabs (navigazione tra le 3 fasi)
+        html += UI.phaseTabs(1);
+
+        // ── SEZIONE 1: PROPRIETARIO ──
         const ownerType = sop.owner?.type || '';
+        const othersPresent = Array.isArray(sop.owner?.others_present) ? sop.owner.others_present : [];
+
+        let ownerFieldsHtml = '';
+        if (ownerType === 'persona') {
+            ownerFieldsHtml = UI.formInput({ label: 'Nome e Cognome', placeholder: 'Es. Mario Rossi', id: 'field-owner-name', value: sop.owner?.name || '' });
+        } else if (ownerType === 'societa') {
+            ownerFieldsHtml = UI.formInput({ label: 'Ragione Sociale', placeholder: 'Es. Immobiliare SRL', id: 'field-company-name', value: sop.owner?.company_name || '' });
+            const adminLabel = isPC ? 'Amministratore/Delegato' : 'Amministratore della societa\'';
+            ownerFieldsHtml += UI.formInput({ label: adminLabel, placeholder: 'Nome', id: 'field-company-admin', value: sop.owner?.company_admin || '' });
+        }
+
+        // Lista altri presenti per la proprieta'
+        let othersHtml = '';
+        for (let i = 0; i < othersPresent.length; i++) {
+            othersHtml += `<div style="display:flex; gap:8px; align-items:center; padding: 4px 0;">
+                <input class="form-input other-present-input" type="text" data-other-index="${i}" value="${esc(othersPresent[i])}" placeholder="Altro presente ${i + 1}">
+                <button class="btn-choice other-remove" data-other-index="${i}" style="color:var(--destructive); min-width:40px;">x</button>
+            </div>`;
+        }
+
         html += UI.section('PROPRIETARIO', `
             <div style="padding: 0 16px; margin-bottom: 8px;">
                 <div class="btn-grid">
@@ -46,10 +70,62 @@ const AnagraficaView = {
                     <button class="btn-choice${ownerType === 'societa' ? ' selected' : ''}" data-owner-type="societa">Societa'</button>
                 </div>
             </div>
-            <div id="owner-fields"></div>
+            <div id="owner-fields" style="padding: 0 16px;">${ownerFieldsHtml}</div>
+            <div id="others-present-list" style="padding: 0 16px;">${othersHtml}</div>
+            <div style="padding: 8px 16px;">
+                <button class="btn btn-outline" id="btn-add-other" style="width:100%;">+ Aggiungi Altro Presente</button>
+            </div>
         `);
 
-        // Bottone avanti
+        // ── SEZIONE 2: TECNICO METRO C ──
+        const colls = Array.isArray(sop.attendees?.metro_coll) ? sop.attendees.metro_coll : [];
+        let collHtml = '';
+        for (let i = 0; i < colls.length; i++) {
+            collHtml += `<div style="display:flex; gap:8px; align-items:center; padding: 4px 0;">
+                <input class="form-input collaborator-input" type="text" data-coll-index="${i}" value="${esc(colls[i])}" placeholder="Collaboratore ${i + 1}">
+                <button class="btn-choice coll-remove" data-coll-index="${i}" style="color:var(--destructive); min-width:40px;">x</button>
+            </div>`;
+        }
+
+        html += UI.section('TECNICO METRO C', `
+            <div style="padding: 0 16px;">
+                ${UI.formInput({ label: 'Tecnico Metro C (Societa\')', placeholder: 'Es. Mario Rossi (ABC Srl)', id: 'field-metro-tech', value: sop.attendees?.metro_tech || '' }).trim()}
+            </div>
+            <div style="padding: 0 16px; margin-top: 4px; font-size: 13px; color: var(--hint); font-weight: 500;">Collaboratori</div>
+            <div id="coll-list" style="padding: 0 16px;">${collHtml}</div>
+            <div style="padding: 8px 16px;">
+                <button class="btn btn-outline" id="btn-add-coll" style="width:100%;">+ Aggiungi Collaboratore</button>
+            </div>
+        `);
+
+        // ── SEZIONE 3: ROMA METROPOLITANE ──
+        const rmPresente = sop.rm_presente === true;
+        html += UI.section('ROMA METROPOLITANE', `
+            <div style="padding: 0 16px; margin-bottom: 8px;">
+                <div class="btn-grid">
+                    <button class="btn-choice${rmPresente ? ' selected' : ''}" data-rm="yes">Presente</button>
+                    <button class="btn-choice${!rmPresente ? ' selected' : ''}" data-rm="no">Non Presente</button>
+                </div>
+            </div>
+            <div id="rm-name-field" style="padding: 0 16px;">
+                ${rmPresente ? UI.formInput({ label: 'Rappresentante RM', placeholder: 'Nome rappresentante', id: 'field-rm', value: sop.attendees?.rm || '' }).trim() : ''}
+            </div>
+        `);
+
+        // ── SEZIONE 4: NOTA OPERATORE ──
+        const opNote = sop.operator_note || '';
+        html += UI.section('NOTA OPERATORE', `
+            <div style="padding: 0 16px;">
+                <textarea class="form-input form-textarea" id="field-operator-note" rows="3"
+                    placeholder="Es. Appartamento ristrutturato nel 2018, pavimenti in parquet..."
+                    style="font-size: 13px;">${esc(opNote)}</textarea>
+                <div style="font-size: 11px; color: var(--hint); margin-top: 4px;">
+                    Questa nota verra' aggiunta nel verbale nella sezione note, dopo le eventuali note automatiche dei vani.
+                </div>
+            </div>
+        `);
+
+        // ── BOTTONE AVANTI ──
         html += `<div style="padding: 16px;">
             <button class="btn btn-primary" id="btn-next-anag">Avanti</button>
         </div>`;
@@ -57,189 +133,162 @@ const AnagraficaView = {
 
         container.innerHTML = html;
 
-        // Render owner fields
-        this._renderOwnerFields(sop);
+        // ═══ BIND EVENTI ═══
 
-        // Bind tipo proprietario
+        // Phase tabs — navigazione tra le 3 fasi
+        const self = this;
+        container.querySelectorAll('.phase-tab').forEach(tab => {
+            tab.addEventListener('click', async () => {
+                const phase = parseInt(tab.dataset.phase);
+                if (phase === 0) {
+                    await self._saveAllFields(sop);
+                    App.navigate('home');
+                } else if (phase === 2) {
+                    await self._saveAllFields(sop);
+                    App.navigate(`rooms/${self.sopId}`);
+                } else if (phase === 3) {
+                    await self._saveAllFields(sop);
+                    App.navigate(`review/${self.sopId}`);
+                }
+                // phase === 1: gia' qui (anagrafica), non fare nulla
+            });
+        });
+
+        // Tipo proprietario
         container.querySelectorAll('[data-owner-type]').forEach(btn => {
             btn.addEventListener('click', async () => {
                 container.querySelectorAll('[data-owner-type]').forEach(b => b.classList.remove('selected'));
                 btn.classList.add('selected');
                 const type = btn.dataset.ownerType;
+                const currentOthers = this._getOthersPresent();
                 await Events.dispatch('set_anagrafica', this.sopId, {
-                    owner: { type, name: '', company_name: '', company_admin: '' }
+                    owner: { type, name: '', company_name: '', company_admin: '', others_present: currentOthers }
                 });
                 const updated = await DB.getSopralluogo(this.sopId);
-                this._renderOwnerFields(updated);
+                this._renderMain(container, updated);
             });
         });
 
-        // Avanti -> RM toggle
-        document.getElementById('btn-next-anag').addEventListener('click', async () => {
-            await this._saveOwnerFields(sop);
+        // Aggiungi altro presente
+        document.getElementById('btn-add-other')?.addEventListener('click', async () => {
+            await this._saveAllFields(sop);
+            const current = await DB.getSopralluogo(this.sopId);
+            const others = Array.isArray(current.owner?.others_present) ? [...current.owner.others_present] : [];
+            others.push('');
+            await Events.dispatch('set_anagrafica', this.sopId, {
+                owner: { ...current.owner, others_present: others }
+            });
             const updated = await DB.getSopralluogo(this.sopId);
-            this._subStep = 'rm_toggle';
-            this._renderRMToggle(container, updated);
-        });
-    },
-
-    _renderOwnerFields(sop) {
-        const el = document.getElementById('owner-fields');
-        if (!el) return;
-        const type = sop.owner?.type || '';
-        const isPC = CONFIG.isPartiComuni(sop);
-
-        let html = '<div style="padding: 0 16px;">';
-        if (type === 'persona') {
-            html += UI.formInput({ label: 'Nome e Cognome', placeholder: 'Es. Mario Rossi', id: 'field-owner-name', value: sop.owner?.name || '' });
-        } else if (type === 'societa') {
-            html += UI.formInput({ label: 'Ragione Sociale', placeholder: 'Es. Immobiliare SRL', id: 'field-company-name', value: sop.owner?.company_name || '' });
-            const adminLabel = isPC ? 'Amministratore/Delegato' : 'Amministratore della societa\'';
-            html += UI.formInput({ label: adminLabel, placeholder: 'Nome', id: 'field-company-admin', value: sop.owner?.company_admin || '' });
-        }
-        html += '</div>';
-        el.innerHTML = type ? html : '';
-    },
-
-    async _saveOwnerFields(sop) {
-        const owner = { type: sop.owner?.type || 'persona' };
-        const nameEl = document.getElementById('field-owner-name');
-        const companyEl = document.getElementById('field-company-name');
-        const adminEl = document.getElementById('field-company-admin');
-
-        if (nameEl) owner.name = nameEl.value.trim();
-        if (companyEl) owner.company_name = companyEl.value.trim();
-        if (adminEl) owner.company_admin = adminEl.value.trim();
-
-        await Events.dispatch('set_anagrafica', this.sopId, { owner });
-    },
-
-    // ========== STEP 2: RM PRESENTE ==========
-
-    _renderRMToggle(container, sop) {
-        UI.setTitle('Roma Metropolitane');
-        let html = '';
-
-        html += `
-            <div class="empty-state">
-                <div class="empty-state-icon">🏛</div>
-                <div class="empty-state-title">Roma Metropolitane e' presente?</div>
-                <div class="empty-state-text">Indica se un rappresentante di Roma Metropolitane e' presente al sopralluogo</div>
-            </div>
-            <div style="padding: 0 16px; display: flex; gap: 8px;">
-                <button class="btn btn-primary" id="btn-rm-yes" style="flex:1;">Si'</button>
-                <button class="btn btn-secondary" id="btn-rm-no" style="flex:1;">No</button>
-            </div>
-        `;
-
-        container.innerHTML = html;
-
-        document.getElementById('btn-rm-yes').addEventListener('click', async () => {
-            await Events.dispatch('set_rm_presente', this.sopId, { presente: true });
-            const updated = await DB.getSopralluogo(this.sopId);
-            this._subStep = 'figures';
-            this._renderFigures(container, updated);
+            this._renderMain(container, updated);
         });
 
-        document.getElementById('btn-rm-no').addEventListener('click', async () => {
-            await Events.dispatch('set_rm_presente', this.sopId, { presente: false });
-            const updated = await DB.getSopralluogo(this.sopId);
-            this._subStep = 'figures';
-            this._renderFigures(container, updated);
+        // Rimuovi altro presente
+        container.querySelectorAll('.other-remove').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await this._saveAllFields(sop);
+                const idx = parseInt(btn.dataset.otherIndex);
+                const current = await DB.getSopralluogo(this.sopId);
+                const others = Array.isArray(current.owner?.others_present) ? [...current.owner.others_present] : [];
+                others.splice(idx, 1);
+                await Events.dispatch('set_anagrafica', this.sopId, {
+                    owner: { ...current.owner, others_present: others }
+                });
+                const updated = await DB.getSopralluogo(this.sopId);
+                this._renderMain(container, updated);
+            });
         });
-    },
 
-    // ========== STEP 3: FIGURE PRESENTI ==========
-
-    _renderFigures(container, sop) {
-        UI.setTitle('Figure Presenti');
-        const isPC = CONFIG.isPartiComuni(sop);
-
-        let html = '';
-        html += UI.section('TECNICO METRO C', `
-            <div style="padding: 0 16px;">
-                ${UI.formInput({ label: 'Tecnico Metro C (Societa\')', placeholder: 'Es. Mario Rossi (ABC Srl)', id: 'field-metro-tech', value: sop.attendees?.metro_tech || '' }).trim()}
-            </div>
-        `);
-
-        // Collaboratori
-        const colls = Array.isArray(sop.attendees?.metro_coll) ? sop.attendees.metro_coll : [];
-        let collHtml = '';
-        for (let i = 0; i < colls.length; i++) {
-            collHtml += `<div style="display:flex; gap:8px; align-items:center; padding: 4px 16px;">
-                <input class="form-input collaborator-input" type="text" data-coll-index="${i}" value="${UI._escapeHtml(colls[i])}" placeholder="Collaboratore ${i + 1}">
-                <button class="btn-choice coll-remove" data-coll-index="${i}" style="color:var(--destructive); min-width:40px;">x</button>
-            </div>`;
-        }
-        html += UI.section('COLLABORATORI METRO C', `
-            <div id="coll-list">${collHtml}</div>
-            <div style="padding: 8px 16px;">
-                <button class="btn btn-outline" id="btn-add-coll" style="width:100%;">+ Aggiungi Collaboratore</button>
-            </div>
-        `);
-
-        // RM (solo se presente)
-        if (sop.rm_presente) {
-            html += UI.section('ROMA METROPOLITANE', `
-                <div style="padding: 0 16px;">
-                    ${UI.formInput({ label: 'Rappresentante RM', placeholder: 'Nome rappresentante', id: 'field-rm', value: sop.attendees?.rm || '' }).trim()}
-                </div>
-            `);
-        }
-
-        // Proprietario/Amministratore presente
-        const adminLabel = isPC ? 'Amministratore/Delegato' : 'Proprietario/Occupante';
-        html += UI.section(adminLabel.toUpperCase(), `
-            <div style="padding: 0 16px;">
-                ${UI.formInput({ label: adminLabel, placeholder: 'Nome (se presente)', id: 'field-admin-present', value: sop.attendees?.admin_present || '' }).trim()}
-            </div>
-        `);
-
-        html += `<div style="padding: 16px;">
-            <button class="btn btn-primary" id="btn-next-figures">Avanti</button>
-        </div>`;
-        html += '<div style="height:32px;"></div>';
-
-        container.innerHTML = html;
-
-        // Add collaborator
-        document.getElementById('btn-add-coll').addEventListener('click', async () => {
-            const currentColls = this._getCollaborators();
+        // Aggiungi collaboratore
+        document.getElementById('btn-add-coll')?.addEventListener('click', async () => {
+            await this._saveAllFields(sop);
+            const current = await DB.getSopralluogo(this.sopId);
+            const currentColls = Array.isArray(current.attendees?.metro_coll) ? [...current.attendees.metro_coll] : [];
             currentColls.push('');
-            await Events.dispatch('set_anagrafica', this.sopId, { attendees: { metro_coll: currentColls } });
+            await Events.dispatch('set_anagrafica', this.sopId, {
+                attendees: { ...current.attendees, metro_coll: currentColls }
+            });
             const updated = await DB.getSopralluogo(this.sopId);
-            this._renderFigures(container, updated);
+            this._renderMain(container, updated);
         });
 
-        // Remove collaborator
+        // Rimuovi collaboratore
         container.querySelectorAll('.coll-remove').forEach(btn => {
             btn.addEventListener('click', async () => {
+                await this._saveAllFields(sop);
                 const idx = parseInt(btn.dataset.collIndex);
-                const currentColls = this._getCollaborators();
+                const current = await DB.getSopralluogo(this.sopId);
+                const currentColls = Array.isArray(current.attendees?.metro_coll) ? [...current.attendees.metro_coll] : [];
                 currentColls.splice(idx, 1);
-                await Events.dispatch('set_anagrafica', this.sopId, { attendees: { metro_coll: currentColls } });
+                await Events.dispatch('set_anagrafica', this.sopId, {
+                    attendees: { ...current.attendees, metro_coll: currentColls }
+                });
                 const updated = await DB.getSopralluogo(this.sopId);
-                this._renderFigures(container, updated);
+                this._renderMain(container, updated);
             });
         });
 
-        // Next -> cappello
-        document.getElementById('btn-next-figures').addEventListener('click', async () => {
-            const attendees = {
-                metro_tech: document.getElementById('field-metro-tech')?.value.trim() || '',
-                metro_coll: this._getCollaborators(),
-                rm: document.getElementById('field-rm')?.value.trim() || '',
-                admin_present: document.getElementById('field-admin-present')?.value.trim() || ''
-            };
-            await Events.dispatch('set_anagrafica', this.sopId, { attendees });
+        // Toggle RM presente
+        container.querySelectorAll('[data-rm]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                container.querySelectorAll('[data-rm]').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                const presente = btn.dataset.rm === 'yes';
+                await Events.dispatch('set_rm_presente', this.sopId, { presente });
+                const rmField = document.getElementById('rm-name-field');
+                if (rmField) {
+                    if (presente) {
+                        rmField.innerHTML = UI.formInput({ label: 'Rappresentante RM', placeholder: 'Nome rappresentante', id: 'field-rm', value: '' }).trim();
+                    } else {
+                        rmField.innerHTML = '';
+                    }
+                }
+            });
+        });
 
+        // Avanti -> cappello
+        document.getElementById('btn-next-anag')?.addEventListener('click', async () => {
+            await this._saveAllFields(sop);
             const updated = await DB.getSopralluogo(this.sopId);
             this._subStep = 'cappello';
             this._renderCappello(container, updated);
         });
     },
 
-    // ========== STEP 4: CAPPELLO PREVIEW ==========
+    // ========== SALVA TUTTI I CAMPI ==========
+
+    async _saveAllFields(sop) {
+        // Owner
+        const owner = { type: sop.owner?.type || 'persona' };
+        const nameEl = document.getElementById('field-owner-name');
+        const companyEl = document.getElementById('field-company-name');
+        const adminEl = document.getElementById('field-company-admin');
+
+        if (nameEl) owner.name = nameEl.value.trim();
+        else owner.name = sop.owner?.name || '';
+        if (companyEl) owner.company_name = companyEl.value.trim();
+        else owner.company_name = sop.owner?.company_name || '';
+        if (adminEl) owner.company_admin = adminEl.value.trim();
+        else owner.company_admin = sop.owner?.company_admin || '';
+
+        owner.others_present = this._getOthersPresent();
+
+        // Attendees
+        const attendees = {
+            metro_tech: document.getElementById('field-metro-tech')?.value.trim() || '',
+            metro_coll: this._getCollaborators(),
+            rm: document.getElementById('field-rm')?.value.trim() || ''
+        };
+
+        await Events.dispatch('set_anagrafica', this.sopId, { owner, attendees });
+
+        // Operator note
+        const noteEl = document.getElementById('field-operator-note');
+        if (noteEl) {
+            await Events.dispatch('set_operator_note', this.sopId, { text: noteEl.value.trim() });
+        }
+    },
+
+    // ========== CAPPELLO PREVIEW ==========
 
     _renderCappello(container, sop) {
         UI.setTitle('Testo Introduttivo');
@@ -275,7 +324,6 @@ const AnagraficaView = {
             if (sop.custom_cappello !== cappelloText) {
                 await Events.dispatch('set_cappello', this.sopId, { text: cappelloText });
             } else {
-                // Imposta start_time se non gia' set
                 await Events.dispatch('set_cappello', this.sopId, { text: sop.custom_cappello });
             }
             await this._finalize(sop);
@@ -288,7 +336,7 @@ const AnagraficaView = {
 
         // Salta
         document.getElementById('btn-cappello-skip').addEventListener('click', async () => {
-            await Events.dispatch('set_cappello', this.sopId, { text: null }); // null = auto
+            await Events.dispatch('set_cappello', this.sopId, { text: null });
             await this._finalize(sop);
         });
     },
@@ -319,7 +367,7 @@ const AnagraficaView = {
         });
 
         document.getElementById('btn-cancel-cappello').addEventListener('click', () => {
-            const updated = DB.getSopralluogo(this.sopId).then(s => {
+            DB.getSopralluogo(this.sopId).then(s => {
                 this._renderCappello(container, s);
             });
         });
@@ -328,7 +376,6 @@ const AnagraficaView = {
     // ========== FINALIZZA ==========
 
     async _finalize(sop) {
-        // Genera unit_name se necessario
         if (typeof SetupView !== 'undefined' && SetupView._buildUnitName) {
             await SetupView._buildUnitName(await DB.getSopralluogo(this.sopId));
         }
@@ -350,6 +397,16 @@ const AnagraficaView = {
         return colls;
     },
 
+    _getOthersPresent() {
+        const inputs = document.querySelectorAll('.other-present-input');
+        const others = [];
+        inputs.forEach(input => {
+            const val = input.value.trim();
+            if (val) others.push(val);
+        });
+        return others;
+    },
+
     _fallbackCappello(sop) {
         const now = new Date();
         const dateStr = now.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -357,26 +414,41 @@ const AnagraficaView = {
 
         let text = `In data ${dateStr} alle ore ${timeStr} si accede presso il fabbricato sito in ${sop.building_address || '___'} `;
         text += `per effettuare il testimoniale di ${sop.manual_unit_type || sop.unit_name || sop.unit_type || '___'}.\n\n`;
-        text += `Sono presenti:\n`;
 
+        // Proprietario
+        const ownerStr = this._buildOwnerString(sop);
+        if (ownerStr) {
+            const isPC = CONFIG.isPartiComuni(sop);
+            const label = isPC ? "l'Amministratore/Delegato" : "la Proprieta'/Comproprietario/Affittuario/Delegato";
+            text += `Sono presenti per ${label}: ${ownerStr}\n\n`;
+        }
+
+        text += `Sono presenti:\n`;
         if (sop.attendees?.metro_tech) text += `- Tecnico Metro C: ${sop.attendees.metro_tech}\n`;
         if (sop.attendees?.metro_coll?.length > 0) {
             text += `- Collaboratori: ${sop.attendees.metro_coll.join(', ')}\n`;
         }
         if (sop.rm_presente && sop.attendees?.rm) text += `- Roma Metropolitane: ${sop.attendees.rm}\n`;
-        if (sop.attendees?.admin_present) {
-            const isPC = CONFIG.isPartiComuni(sop);
-            const label = isPC ? 'Amministratore/Delegato' : 'Proprietario';
-            text += `- ${label}: ${sop.attendees.admin_present}\n`;
-        }
-
-        if (sop.owner?.type === 'persona' && sop.owner?.name) {
-            text += `\nProprietario: ${sop.owner.name}`;
-        } else if (sop.owner?.type === 'societa' && sop.owner?.company_name) {
-            text += `\nSocieta': ${sop.owner.company_name}`;
-            if (sop.owner.company_admin) text += ` (${sop.owner.company_admin})`;
-        }
 
         return text;
+    },
+
+    _buildOwnerString(sop) {
+        const parts = [];
+        if (sop.owner?.type === 'persona' && sop.owner?.name) {
+            parts.push(sop.owner.name);
+        } else if (sop.owner?.type === 'societa') {
+            if (sop.owner?.company_name) {
+                let s = sop.owner.company_name;
+                if (sop.owner.company_admin) s += ` (${sop.owner.company_admin})`;
+                parts.push(s);
+            }
+        }
+        if (Array.isArray(sop.owner?.others_present)) {
+            for (const other of sop.owner.others_present) {
+                if (other.trim()) parts.push(other.trim());
+            }
+        }
+        return parts.join(', ');
     }
 };

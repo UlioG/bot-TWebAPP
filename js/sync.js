@@ -305,11 +305,30 @@ const Sync = {
 
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({ error: 'Errore sconosciuto' }));
+                // Fase E: gestione HTTP 409 (unita' gia' di altro operatore, non-PC)
+                if (resp.status === 409) {
+                    const masterOp = err.master_operator || 'altro operatore';
+                    UI.toast(`Unita\' gia\' assegnata a ${masterOp}. Multi-operatore solo per Parti Comuni.`, 5000);
+                    this.updateIndicator('error');
+                    return false;
+                }
                 throw new Error(err.error || `HTTP ${resp.status}`);
             }
 
             const result = await resp.json();
             console.log('Sync metadata OK:', result);
+
+            // Fase E: salva info ruolo multi-operatore sul sopralluogo.
+            // SEMPRE sovrascrivere per evitare dati stale da sync precedenti.
+            sop.sync_role = result.role || null;
+            sop.master_operator_name = result.master_operator_name || '';
+            sop.master_rooms = result.master_rooms || [];
+            sop.secondary_rooms = result.secondary_rooms || [];
+            sop.rooms_added = result.rooms_added || 0;
+            sop.rooms_updated = result.rooms_updated || 0;
+            sop.rooms_skipped = result.rooms_skipped || 0;
+            sop.skipped_room_names = result.skipped_room_names || [];
+            sop.total_rooms_on_disk = result.total_rooms_on_disk || 0;
 
             // Fase 2: upload foto una per una
             const photos = await DB.getPhotosBySopralluogo(sopralluogoId);
@@ -318,6 +337,12 @@ const Sync = {
 
             for (const photo of photos) {
                 if (!photo.blob) continue;
+
+                // Fase E: skip foto per vani scartati (secondario, master vince)
+                if (result.role === 'secondary' && result.skipped_room_names &&
+                    result.skipped_room_names.includes(photo.room_name)) {
+                    continue;
+                }
 
                 try {
                     const ok = await this._uploadPhotoToAPI(sop, photo);
@@ -339,9 +364,30 @@ const Sync = {
             await DB.saveSopralluogo(sop);
 
             this.updateIndicator('synced');
-            let msg = `Sincronizzato: ${result.rooms_saved || 0} vani, ${uploaded} foto`;
-            if (failed > 0) msg += ` (${failed} foto fallite)`;
-            UI.toast(msg);
+
+            // Fase E: toast differenziato per ruolo
+            if (result.role === 'secondary') {
+                let msg = `${result.rooms_added || 0} vani nuovi`;
+                if (result.rooms_updated > 0) {
+                    msg += `, ${result.rooms_updated} aggiornati`;
+                }
+                if (result.rooms_skipped > 0) {
+                    msg += `, ${result.rooms_skipped} scartati (gia\' del master)`;
+                }
+                msg += `. Master (${result.master_operator_name || '?'}) ha ${result.total_rooms_on_disk || '?'} vani totali.`;
+                if (uploaded > 0) msg += ` ${uploaded} foto caricate.`;
+                UI.toast(msg, 5000);
+            } else if (result.role === 'master' && result.secondary_rooms && result.secondary_rooms.length > 0) {
+                const secNames = result.secondary_rooms.map(r => r.name).join(', ');
+                let msg = `Sincronizzato: ${result.rooms_saved || 0} vani, ${uploaded} foto.`;
+                msg += ` Vani da altri operatori: ${secNames}`;
+                if (failed > 0) msg += ` (${failed} foto fallite)`;
+                UI.toast(msg, 5000);
+            } else {
+                let msg = `Sincronizzato: ${result.rooms_saved || 0} vani, ${uploaded} foto`;
+                if (failed > 0) msg += ` (${failed} foto fallite)`;
+                UI.toast(msg);
+            }
 
             return true;
         } catch (e) {
@@ -538,6 +584,7 @@ const Sync = {
             rm_presente: sop.rm_presente,
             custom_cappello: sop.custom_cappello,
             custom_chiusura: sop.custom_chiusura,
+            custom_unit_line: sop.custom_unit_line,
             start_time: sop.start_time,
             completed: sop.completed,
             operator_telegram_id: sop.operator_telegram_id,

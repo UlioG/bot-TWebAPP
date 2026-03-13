@@ -240,8 +240,8 @@ function generateCappelloText(sop) {
 
     // Proprietario / Amministratore
     if (sop.owner) {
+        const isPC = CONFIG.isPartiComuni(sop.unit_name || sop.unit_type);
         if (sop.owner.type === 'persona' && sop.owner.name) {
-            const isPC = CONFIG.isPartiComuni(sop.unit_name || sop.unit_type);
             const role = isPC ? 'Amministratore/Delegato' : 'Proprietario';
             lines.push(`- ${sop.owner.name}, ${role}`);
         } else if (sop.owner.type === 'societa') {
@@ -249,9 +249,17 @@ function generateCappelloText(sop) {
                 lines.push(`- ${sop.owner.company_name}`);
             }
             if (sop.owner.company_admin) {
-                const isPC = CONFIG.isPartiComuni(sop.unit_name || sop.unit_type);
-                const role = isPC ? 'Amministratore/Delegato' : 'Amministratore della società';
+                const role = isPC ? 'Amministratore/Delegato' : 'Amministratore della societa\'';
                 lines.push(`  ${sop.owner.company_admin}, ${role}`);
+            }
+        }
+        // Altri presenti per la proprieta'
+        if (Array.isArray(sop.owner.others_present)) {
+            for (const other of sop.owner.others_present) {
+                if (other && other.trim()) {
+                    const role = isPC ? 'presente per l\'Amministrazione' : 'presente per la Proprieta\'';
+                    lines.push(`- ${other.trim()}, ${role}`);
+                }
             }
         }
     }
@@ -277,6 +285,63 @@ function generateChiusuraText(sop) {
 
     return `Il presente verbale viene redatto in contraddittorio e firmato dalle parti alle ore ${timeStr}. ` +
         `Copia del presente verbale viene consegnata al proprietario/conduttore dell'unità immobiliare.`;
+}
+
+/**
+ * Genera la riga info unita' (Piano, Scala, Tipo Unita', Sub.)
+ * @param {Object} sop - Sopralluogo
+ * @returns {string}
+ */
+function generateUnitInfoLine(sop) {
+    if (sop.custom_unit_line) return sop.custom_unit_line;
+
+    const parts = [];
+    if (sop.floor) parts.push(sop.floor);
+    if (sop.stair) parts.push('Scala ' + sop.stair);
+
+    const unitLabel = sop.manual_unit_type || sop.unit_name || sop.unit_type || '';
+    if (unitLabel) parts.push(unitLabel);
+
+    if (sop.subalterno) parts.push('Sub. ' + sop.subalterno);
+    if (sop.unit_internal) parts.push(sop.unit_internal);
+
+    return parts.filter(Boolean).join(', ');
+}
+
+/**
+ * Genera il testo completo di un vano (comprensivo di header e status)
+ * Rispetta custom_room_text se presente
+ * @param {string} roomName
+ * @param {Object} room - Room data
+ * @returns {string}
+ */
+function generateFullRoomText(roomName, room) {
+    // Se l'operatore ha personalizzato il testo, usa quello
+    if (room.custom_room_text) return room.custom_room_text;
+
+    const lines = [];
+
+    // Status speciale
+    if (room.status && room.status !== 'accessible') {
+        const label = (typeof CONFIG !== 'undefined' && CONFIG.ROOM_STATUS_LABELS)
+            ? CONFIG.ROOM_STATUS_LABELS[room.status] || room.status
+            : room.status;
+        lines.push(`NOTA: ${label}`);
+    }
+
+    // Testo manuale (legacy) o osservazioni
+    if (room.manual_text) {
+        lines.push(room.manual_text);
+    } else {
+        const observations = room.observations || [];
+        if (observations.length === 0) {
+            lines.push('Nessuna osservazione.');
+        } else {
+            lines.push(generateRoomText(observations));
+        }
+    }
+
+    return lines.join('\n');
 }
 
 /**
@@ -317,21 +382,55 @@ function generateVerbalePreview(sop) {
         lines.push('');
     }
 
-    // Allontana/Rientra events
+    // Allontana/Rientra/Interruzione/Ripresa events
     if (sop.allontana_events && sop.allontana_events.length > 0) {
-        lines.push('--- INTERRUZIONI ---');
-        for (const ev of sop.allontana_events) {
-            lines.push(`[${ev.time}] ${ev.type}: ${ev.text}`);
+        const regularEvents = sop.allontana_events.filter(ev => ev.type === 'allontana' || ev.type === 'rientra');
+        const interruptEvents = sop.allontana_events.filter(ev => ev.type === 'interruzione' || ev.type === 'ripresa');
+
+        if (regularEvents.length > 0) {
+            lines.push('--- ALLONTANAMENTI ---');
+            for (const ev of regularEvents) {
+                lines.push(`[${ev.time}] ${ev.text}`);
+            }
+            lines.push('');
         }
-        lines.push('');
+
+        if (interruptEvents.length > 0) {
+            let lastInterruptDate = null;
+            for (const ev of interruptEvents) {
+                if (ev.type === 'interruzione') {
+                    lastInterruptDate = ev.date || null;
+                    lines.push(`Il sopralluogo si interrompe alle ore ${ev.time} per ${ev.text}.`);
+                    lines.push('');
+                    lines.push('--- INTERRUZIONE DI PAGINA ---');
+                    lines.push('');
+                } else if (ev.type === 'ripresa') {
+                    const sameDay = lastInterruptDate && ev.date === lastInterruptDate;
+                    if (sameDay || !ev.date) {
+                        lines.push(`Il sopralluogo riprende alle ore ${ev.time}.`);
+                    } else {
+                        lines.push(`Il sopralluogo riprende in data ${ev.date} alle ore ${ev.time}.`);
+                    }
+                    lines.push('');
+                    lastInterruptDate = null;
+                }
+            }
+        }
     }
 
-    // Note globali
-    if (Array.isArray(sop.global_notes) && sop.global_notes.length > 0) {
+    // Note globali + nota operatore
+    const hasGlobalNotes = Array.isArray(sop.global_notes) && sop.global_notes.length > 0;
+    const hasOperatorNote = sop.operator_note && sop.operator_note.trim();
+    if (hasGlobalNotes || hasOperatorNote) {
         lines.push('--- NOTE ---');
-        for (const note of sop.global_notes) {
-            const prefix = note.room_name ? `[${note.room_name}] ` : '';
-            lines.push(`${prefix}${note.text}`);
+        if (hasGlobalNotes) {
+            for (const note of sop.global_notes) {
+                const prefix = note.room_name ? `[${note.room_name}] ` : '';
+                lines.push(`${prefix}${note.text}`);
+            }
+        }
+        if (hasOperatorNote) {
+            lines.push(sop.operator_note.trim());
         }
         lines.push('');
     }
@@ -366,6 +465,8 @@ const Formatters = {
     generateRoomText,
     generateCappelloText,
     generateChiusuraText,
+    generateUnitInfoLine,
+    generateFullRoomText,
     generateVerbalePreview,
     escapeRegex
 };

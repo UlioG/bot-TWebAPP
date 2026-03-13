@@ -75,33 +75,83 @@ const MarkerView = {
 
         // 2. Costruisci lista difetti (solo reali: no NDR, no INGOMBRA, no NON VISIBILE)
         const observations = room.observations || [];
-        const existingMarkers = room.marker_coords || {};
+        let existingMarkers = room.marker_coords || {};
         this._defects = [];
         let defectId = 0;
 
+        // 2a. Migrazione: assegna obs_id a osservazioni che non ce l'hanno
+        let needsObsIdMigration = false;
+        for (const obs of observations) {
+            if (!obs.obs_id) {
+                obs.obs_id = Events.generateObsId();
+                needsObsIdMigration = true;
+            }
+        }
+        if (needsObsIdMigration) {
+            // Salva le osservazioni aggiornate con obs_id
+            await DB.saveSopralluogo(sop);
+        }
+
+        // 2b. Migrazione marker_coords: da chiavi posizionali ("1","2","3") a obs_id
+        const markerKeys = Object.keys(existingMarkers);
+        const hasLegacyKeys = markerKeys.length > 0 && markerKeys.some(k => !k.startsWith('obs_'));
+
+        // Prima costruisci i difetti per poter mappare posizione → obs_id
         for (let i = 0; i < observations.length; i++) {
             const obs = observations[i];
             const phenom = (obs.phenomenon || '').toUpperCase();
 
-            // Salta NDR, INGOMBRA, NON VISIBILE, PARZIALMENTE INGOMBRA
             if (phenom === 'NDR' || phenom === 'INGOMBRA' ||
                 phenom === 'NON VISIBILE' || phenom === 'PARZIALMENTE INGOMBRA') {
                 continue;
             }
 
             defectId++;
-            const dIdStr = String(defectId);
-            const existing = existingMarkers[dIdStr];
             const text = Formatters.formatObservationText(obs, { includeVF: false });
 
             this._defects.push({
                 id: defectId,
+                obs_id: obs.obs_id,
                 obs_index: i,
                 text: text,
-                x: existing ? existing.x : null,
-                y: existing ? existing.y : null,
-                photo_id: existing ? existing.photo_id : null
+                x: null,
+                y: null,
+                photo_id: null
             });
+        }
+
+        // 2c. Carica coordinate marker (con migrazione se necessario)
+        if (hasLegacyKeys) {
+            // Migra: vecchia chiave posizionale → obs_id
+            const migratedMarkers = {};
+            for (const d of this._defects) {
+                const oldKey = String(d.id);
+                if (existingMarkers[oldKey]) {
+                    migratedMarkers[d.obs_id] = {
+                        ...existingMarkers[oldKey],
+                        num: d.id
+                    };
+                    d.x = existingMarkers[oldKey].x;
+                    d.y = existingMarkers[oldKey].y;
+                    d.photo_id = existingMarkers[oldKey].photo_id;
+                }
+            }
+            // Salva marker migrati
+            existingMarkers = migratedMarkers;
+            await Events.dispatch('save_markers', sopId, {
+                room_name: roomName,
+                markers: migratedMarkers
+            });
+        } else {
+            // Carica marker con chiavi obs_id
+            for (const d of this._defects) {
+                const existing = existingMarkers[d.obs_id];
+                if (existing) {
+                    d.x = existing.x;
+                    d.y = existing.y;
+                    d.photo_id = existing.photo_id;
+                }
+            }
         }
 
         if (this._defects.length === 0) {
@@ -623,14 +673,15 @@ const MarkerView = {
     // ========== SAVE ==========
 
     async _save() {
-        // Costruisci marker_coords come nel bot: {"1": {x, y, photo_id}, ...}
+        // Costruisci marker_coords con chiave obs_id + num display
         const markers = {};
         for (const d of this._defects) {
             if (d.x !== null && d.y !== null) {
-                markers[String(d.id)] = {
+                markers[d.obs_id] = {
                     x: d.x,
                     y: d.y,
-                    photo_id: d.photo_id
+                    photo_id: d.photo_id,
+                    num: d.id
                 };
             }
         }
@@ -696,9 +747,11 @@ const MarkerView = {
 
                 // Trova marker per questa foto
                 const relevantMarkers = [];
-                for (const [id, coords] of Object.entries(markers)) {
+                for (const [key, coords] of Object.entries(markers)) {
                     if (coords.photo_id === photoFilename || (!coords.photo_id && Object.keys(markers).length > 0)) {
-                        relevantMarkers.push({ id, ...coords });
+                        // Usa num (display number) se presente, altrimenti fallback alla chiave
+                        const displayId = coords.num != null ? coords.num : key;
+                        relevantMarkers.push({ id: displayId, ...coords });
                     }
                 }
 

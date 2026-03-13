@@ -526,6 +526,9 @@ const UI = {
      * Phase tabs (per navigazione Step 1/2/3)
      */
     phaseTabs(currentPhase) {
+        // Tab Home (sempre visibile, nessuno stato active/done)
+        let homeTab = '<div class="phase-tab phase-tab-home" data-phase="0">\u{1F3E0}</div>';
+
         const phases = [
             { num: 1, label: 'Anagrafica' },
             { num: 2, label: 'Sopralluogo' },
@@ -536,7 +539,7 @@ const UI = {
             const done = p.num < currentPhase ? ' done' : '';
             return `<div class="phase-tab${active}${done}" data-phase="${p.num}">${p.num}. ${p.label}</div>`;
         }).join('');
-        return `<div class="phase-tabs">${tabs}</div>`;
+        return `<div class="phase-tabs">${homeTab}${tabs}</div>`;
     },
 
     // ========== RENDER TO CONTENT ==========

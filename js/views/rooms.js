@@ -14,6 +14,24 @@ const RoomsView = {
         const sop = await DB.getSopralluogo(this.sopId);
         if (!sop) { App.navigate('home', true); return; }
 
+        // Ripresa automatica: se il sopralluogo era interrotto, registra la ripresa
+        if (sop.interrupted) {
+            await Events.dispatch('ripresa', this.sopId, { text: 'Ripresa sopralluogo' });
+            const freshSop = await DB.getSopralluogo(this.sopId);
+            UI.toast('Sopralluogo ripreso');
+            if (roomParam) {
+                const rooms = Events.getActiveRooms(freshSop);
+                if (rooms[roomParam]) {
+                    this.renderRoomCard(container, freshSop, roomParam);
+                } else {
+                    this.renderRoomList(container, freshSop);
+                }
+            } else {
+                this.renderRoomList(container, freshSop);
+            }
+            return;
+        }
+
         if (roomParam) {
             // Check if room is in active context (apartment or pertinenza)
             const rooms = Events.getActiveRooms(sop);
@@ -134,6 +152,16 @@ const RoomsView = {
             }
         }
 
+        // Fase E: Banner operatore secondario
+        if (sop.sync_role === 'secondary') {
+            html += `<div style="background: #fff8e1; border: 1px solid #ffc107; border-radius: 8px; padding: 12px; margin: 0 16px 8px;">
+                <div style="font-weight: 600; font-size: 13px;">\u26A0\uFE0F Operatore Secondario</div>
+                <div style="font-size: 12px; color: #666;">
+                    Master: ${esc(sop.master_operator_name || '')}. I tuoi vani verranno aggiunti al sopralluogo. Solo il master puo\' generare il report.
+                </div>
+            </div>`;
+        }
+
         // Lista vani
         if (roomNames.length > 0) {
             let cells = '';
@@ -168,6 +196,43 @@ const RoomsView = {
             html += UI.emptyState('🏠', 'Nessun vano', 'Aggiungi il primo vano per iniziare');
         }
 
+        // Fase E: Vani del master (sola lettura, visibili al secondario)
+        if (sop.sync_role === 'secondary' && sop.master_rooms && sop.master_rooms.length > 0) {
+            const ownNames = new Set(roomNames);
+            let masterCells = '';
+            for (const mr of sop.master_rooms) {
+                if (ownNames.has(mr.name)) continue;
+                masterCells += UI.cell({
+                    icon: '\uD83D\uDD12',
+                    title: mr.name,
+                    subtitle: `Oss: ${mr.obs_count || 0} (master)`,
+                    dataId: `master_${mr.name}`
+                });
+            }
+            if (masterCells) {
+                html += UI.section(
+                    `VANI DI ${esc(sop.master_operator_name || 'MASTER').toUpperCase()} (sola lettura)`,
+                    masterCells
+                );
+            }
+        }
+
+        // Fase E: Vani di operatori secondari (visibili al master dopo sync)
+        if (sop.sync_role === 'master' && sop.secondary_rooms && sop.secondary_rooms.length > 0) {
+            let secCells = '';
+            for (const sr of sop.secondary_rooms) {
+                secCells += UI.cell({
+                    icon: '\uD83D\uDD12',
+                    title: sr.name,
+                    subtitle: `Oss: ${sr.obs_count || 0} (secondario)`,
+                    dataId: `master_${sr.name}`
+                });
+            }
+            if (secCells) {
+                html += UI.section('VANI DA ALTRI OPERATORI (sola lettura)', secCells);
+            }
+        }
+
         // Bottoni azioni
         html += `<div style="padding: 16px; display: flex; flex-direction: column; gap: 8px;">`;
         if (!isPC || inPert) {
@@ -192,6 +257,11 @@ const RoomsView = {
             html += `<button class="btn btn-outline" id="btn-back-apt">🏠 Torna all'Appartamento</button>`;
         }
 
+        // Interruzione sopralluogo (solo PC, non in pertinenza)
+        if (isPC && !inPert) {
+            html += `<button class="btn btn-outline" id="btn-interrompi" style="border-color:var(--warning,#ffc107); color:var(--warning,#e6a800);">⏸ Interrompi Sopralluogo</button>`;
+        }
+
         if (roomNames.length > 0) {
             html += `<button class="btn btn-secondary" id="btn-review">Riepilogo / Report</button>`;
         }
@@ -208,6 +278,11 @@ const RoomsView = {
         // Click room
         container.querySelectorAll('.cell[data-id]').forEach(cell => {
             cell.addEventListener('click', () => {
+                // Fase E: blocca click su vani read-only (master_ prefix)
+                if (cell.dataset.id.startsWith('master_')) {
+                    UI.toast('Vano di altro operatore, sola lettura');
+                    return;
+                }
                 App.navigate(`rooms/${this.sopId}/${encodeURIComponent(cell.dataset.id)}`);
             });
         });
@@ -216,7 +291,9 @@ const RoomsView = {
         container.querySelectorAll('.phase-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 const phase = parseInt(tab.dataset.phase);
-                if (phase === 1) {
+                if (phase === 0) {
+                    App.navigate('home');
+                } else if (phase === 1) {
                     App.navigate(`setup/${this.sopId}`);
                 } else if (phase === 3) {
                     App.navigate(`review/${this.sopId}`);
@@ -274,6 +351,15 @@ const RoomsView = {
             await Events.dispatch('exit_pertinenza', this.sopId, {});
             const updated = await DB.getSopralluogo(this.sopId);
             this.renderRoomList(container, updated);
+        });
+
+        // Interruzione sopralluogo (solo PC)
+        document.getElementById('btn-interrompi')?.addEventListener('click', () => {
+            UI.promptInput('Motivo interruzione', 'Es. sopralluogo appartamento 3° piano', async (text) => {
+                await Events.dispatch('interruzione', this.sopId, { text: text || 'Altro sopralluogo' });
+                UI.toast('Sopralluogo interrotto');
+                App.navigate('home');
+            });
         });
 
         // Floor tabs (multi-floor)
@@ -614,6 +700,11 @@ const RoomsView = {
             html += `<button class="btn btn-outline" id="btn-stair-conclude">🏁 Concludi Scala</button>`;
         }
 
+        // PC: pulsante per tornare al menu categorie
+        if (isPC) {
+            html += `<button class="btn btn-outline" id="btn-pc-menu" style="border-color:var(--primary); color:var(--primary);">📋 Menu Parti Comuni</button>`;
+        }
+
         html += `<button class="btn btn-secondary" id="btn-back-rooms">Torna ai Vani</button>
         </div><div style="height:32px;"></div>`;
 
@@ -842,6 +933,11 @@ const RoomsView = {
                     }
                 }
             }
+            App.navigate(`rooms/${this.sopId}`);
+        });
+
+        // PC: Menu Parti Comuni — torna alla room list (dove le categorie sono in cima)
+        document.getElementById('btn-pc-menu')?.addEventListener('click', () => {
             App.navigate(`rooms/${this.sopId}`);
         });
 

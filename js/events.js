@@ -16,6 +16,13 @@ const Events = {
     },
 
     /**
+     * Genera un ID stabile per osservazione (usato come chiave marker_coords)
+     */
+    generateObsId() {
+        return 'obs_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    },
+
+    /**
      * Ottieni user_id da Telegram WebApp (o fallback)
      */
     getUserId() {
@@ -101,6 +108,7 @@ const Events = {
                     allontana_events: [],
                     custom_cappello: null,
                     custom_chiusura: null,
+                    custom_unit_line: null,
                     start_time: null,
                     operator_telegram_id: this.getUserId(),
                     operator_telegram_name: this.getUserName(),
@@ -229,7 +237,12 @@ const Events = {
 
             case 'add_observation': {
                 if (sop.rooms[p.room_name]) {
+                    // Se c'era testo custom del riepilogo, lo invalidiamo
+                    if (sop.rooms[p.room_name].custom_room_text) {
+                        sop.rooms[p.room_name].custom_room_text = null;
+                    }
                     const obs = {
+                        obs_id: p.obs_id || this.generateObsId(),
                         element: p.element,
                         wall: p.wall || null,
                         position: p.position || null,
@@ -267,12 +280,18 @@ const Events = {
             case 'edit_observation':
                 if (sop.rooms[p.room_name] && sop.rooms[p.room_name].observations[p.observation_index]) {
                     Object.assign(sop.rooms[p.room_name].observations[p.observation_index], p.changes);
+                    if (sop.rooms[p.room_name].custom_room_text) {
+                        sop.rooms[p.room_name].custom_room_text = null;
+                    }
                 }
                 break;
 
             case 'delete_observation':
                 if (sop.rooms[p.room_name]) {
                     sop.rooms[p.room_name].observations.splice(p.observation_index, 1);
+                    if (sop.rooms[p.room_name].custom_room_text) {
+                        sop.rooms[p.room_name].custom_room_text = null;
+                    }
                 }
                 break;
 
@@ -280,7 +299,11 @@ const Events = {
 
             case 'set_room_ndr':
                 if (sop.rooms[p.room_name]) {
+                    if (sop.rooms[p.room_name].custom_room_text) {
+                        sop.rooms[p.room_name].custom_room_text = null;
+                    }
                     sop.rooms[p.room_name].observations.push({
+                        obs_id: this.generateObsId(),
                         element: p.element,
                         wall: p.wall || null,
                         balcone_sub: p.balcone_sub || null,
@@ -303,7 +326,11 @@ const Events = {
 
             case 'set_room_ingombra':
                 if (sop.rooms[p.room_name]) {
+                    if (sop.rooms[p.room_name].custom_room_text) {
+                        sop.rooms[p.room_name].custom_room_text = null;
+                    }
                     sop.rooms[p.room_name].observations.push({
+                        obs_id: this.generateObsId(),
                         element: p.element,
                         wall: p.wall || null,
                         balcone_sub: p.balcone_sub || null,
@@ -325,7 +352,11 @@ const Events = {
 
             case 'set_room_non_visibile':
                 if (sop.rooms[p.room_name]) {
+                    if (sop.rooms[p.room_name].custom_room_text) {
+                        sop.rooms[p.room_name].custom_room_text = null;
+                    }
                     sop.rooms[p.room_name].observations.push({
+                        obs_id: this.generateObsId(),
                         element: p.element,
                         wall: p.wall || null,
                         balcone_sub: p.balcone_sub || null,
@@ -348,7 +379,11 @@ const Events = {
 
             case 'set_room_parz_ingombra':
                 if (sop.rooms[p.room_name]) {
+                    if (sop.rooms[p.room_name].custom_room_text) {
+                        sop.rooms[p.room_name].custom_room_text = null;
+                    }
                     sop.rooms[p.room_name].observations.push({
+                        obs_id: this.generateObsId(),
                         element: p.element,
                         wall: p.wall || null,
                         balcone_sub: p.balcone_sub || null,
@@ -397,6 +432,7 @@ const Events = {
                     const labels = CONFIG.generateWallLabels(p.wall_count);
                     for (const label of labels) {
                         room.observations.push({
+                            obs_id: this.generateObsId(),
                             element: 'Pareti',
                             wall: label,
                             position: null,
@@ -449,6 +485,20 @@ const Events = {
                 }
                 break;
 
+            // ========== TESTO CUSTOM PER RIEPILOGO ==========
+
+            case 'set_custom_room_text':
+                // Testo custom per singolo vano (override del testo auto-generato nel verbale)
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].custom_room_text = p.text; // null = auto, string = custom
+                }
+                break;
+
+            case 'set_custom_unit_line':
+                // Riga info unita' custom (Piano, Scala, Appartamento, Sub.)
+                sop.custom_unit_line = p.text; // null = auto, string = custom
+                break;
+
             // ========== NOTE GLOBALI ==========
 
             case 'add_global_note':
@@ -474,12 +524,25 @@ const Events = {
                 sop.signers = { ...sop.signers, ...p };
                 break;
 
+            case 'set_signer_enabled':
+                sop.signer_enabled = { ...(sop.signer_enabled || {}), ...p };
+                break;
+
+            case 'set_operator_note':
+                sop.operator_note = p.text || '';
+                break;
+
+            case 'set_pert_order':
+                sop.pert_order = p.order;
+                break;
+
             // ========== ALLONTANAMENTO ==========
 
             case 'allontana': {
                 if (!sop.allontana_events) sop.allontana_events = [];
                 sop.allontana_events.push({
                     type: 'allontana',
+                    text: p.text || 'Si allontana',
                     room_name: p.room_name || null,
                     time: new Date(event.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
                     timestamp: event.timestamp
@@ -491,10 +554,39 @@ const Events = {
                 if (!sop.allontana_events) sop.allontana_events = [];
                 sop.allontana_events.push({
                     type: 'rientra',
+                    text: p.text || 'Rientra',
                     room_name: p.room_name || null,
                     time: new Date(event.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
                     timestamp: event.timestamp
                 });
+                break;
+            }
+
+            // ========== INTERRUZIONE SOPRALLUOGO (solo PC) ==========
+
+            case 'interruzione': {
+                if (!sop.allontana_events) sop.allontana_events = [];
+                sop.allontana_events.push({
+                    type: 'interruzione',
+                    text: p.text || 'Interruzione sopralluogo',
+                    time: new Date(event.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+                    date: new Date(event.timestamp).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+                    timestamp: event.timestamp
+                });
+                sop.interrupted = true;
+                break;
+            }
+
+            case 'ripresa': {
+                if (!sop.allontana_events) sop.allontana_events = [];
+                sop.allontana_events.push({
+                    type: 'ripresa',
+                    text: p.text || 'Ripresa sopralluogo',
+                    time: new Date(event.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+                    date: new Date(event.timestamp).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+                    timestamp: event.timestamp
+                });
+                sop.interrupted = false;
                 break;
             }
 
@@ -576,7 +668,7 @@ const Events = {
                 if (sop.pertinenze && sop.pertinenze[p.pert_index]) {
                     const rooms = sop.pertinenze[p.pert_index].rooms;
                     if (rooms && rooms[p.room_name]) {
-                        const obs = { ...p.observation, timestamp: event.timestamp };
+                        const obs = { ...p.observation, obs_id: p.observation.obs_id || this.generateObsId(), timestamp: event.timestamp };
                         rooms[p.room_name].observations.push(obs);
                     }
                 }

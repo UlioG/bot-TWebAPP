@@ -730,6 +730,13 @@ textarea.form-input {
     font-weight: 600;
 }
 
+.phase-tab.phase-tab-home {
+    flex: 0 0 auto;
+    padding: 10px 14px;
+    font-size: 16px;
+    border-right: 1px solid var(--border-light);
+}
+
 /* ===== MISSING SURFACES WARNING ===== */
 .missing-surfaces {
     background: rgb(255, 245, 230);

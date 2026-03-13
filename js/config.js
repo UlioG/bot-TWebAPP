@@ -114,8 +114,11 @@ const CONFIG = {
 
     STAIR_ELEMENTS_RAMPA: [
         'Parete', 'Parete vano ascensore', 'Parapetto',
-        'Rampa', 'Intradosso superiore', 'Elemento/Varco'
+        'Rampa', 'Pedata', 'Sottogrado', 'Intradosso superiore', 'Elemento/Varco'
     ],
+
+    // Elementi rampa che richiedono input gradino
+    STAIR_GRADINO_ELEMENTS: ['Pedata', 'Sottogrado'],
 
     STAIR_ELEMENTS_SOTTOSCALA: [
         'Pareti', 'Parete vano ascensore', 'Parapetto',
