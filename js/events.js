@@ -219,6 +219,12 @@ const Events = {
                 }
                 break;
 
+            case 'save_markers':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].marker_coords = p.markers || {};
+                }
+                break;
+
             // ========== OSSERVAZIONI ==========
 
             case 'add_observation': {

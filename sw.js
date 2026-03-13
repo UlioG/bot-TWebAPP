@@ -21,15 +21,12 @@ const ASSETS_TO_CACHE = [
     './js/views/stairs.js',
     './js/views/prospetti.js',
     './js/reports/formatters.js',
-    './js/reports/verbale.js',
     './manifest.json'
 ];
 
-// CDN resources to cache for offline DOCX generation
+// CDN resources to cache
 const CDN_TO_CACHE = [
-    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-    'https://cdn.jsdelivr.net/npm/docx@9.6.0/dist/index.iife.js',
-    'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js'
+    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
 ];
 
 // Install: pre-cache static assets

@@ -108,10 +108,14 @@ const Photos = {
 
     /**
      * Salva foto in IndexedDB
+     * @param {number|null} pertinenzaIndex - indice pertinenza (null = appartamento)
      */
-    async save(sopralluogoId, roomName, type, blob, thumbnail, observationKey = null) {
+    async save(sopralluogoId, roomName, type, blob, thumbnail, observationKey = null, pertinenzaIndex = null) {
         const id = Events.uuid();
-        const photoCount = (await DB.getPhotosByRoom(roomName)).filter((p) => p.type === type).length;
+        const allRoomPhotos = await DB.getPhotosByRoom(roomName);
+        const photoCount = allRoomPhotos
+            .filter(p => p.type === type && this._matchPert(p, pertinenzaIndex))
+            .length;
         const num = photoCount + 1;
 
         let filename;
@@ -132,12 +136,22 @@ const Photos = {
             blob: blob,
             thumbnail: thumbnail,
             observation_key: observationKey,
+            pertinenza_index: pertinenzaIndex,
             created_at: Date.now(),
             synced: false
         };
 
         await DB.addPhoto(photoData);
         return { id, filename };
+    },
+
+    /**
+     * Helper: confronta pertinenza_index di una foto con il valore atteso
+     * null/undefined matchano tra loro (contesto appartamento)
+     */
+    _matchPert(photo, pertIdx) {
+        if (pertIdx == null) return photo.pertinenza_index == null;
+        return photo.pertinenza_index === pertIdx;
     },
 
     /**
@@ -160,10 +174,11 @@ const Photos = {
 
     /**
      * Renderizza griglia foto per un vano
+     * @param {number|null} pertinenzaIndex - indice pertinenza (null = appartamento)
      */
-    async renderPhotoGrid(sopralluogoId, roomName, type, onAdd) {
+    async renderPhotoGrid(sopralluogoId, roomName, type, onAdd, pertinenzaIndex = null) {
         const photos = (await DB.getPhotosBySopralluogo(sopralluogoId))
-            .filter((p) => p.room_name === roomName && p.type === type);
+            .filter(p => p.room_name === roomName && p.type === type && this._matchPert(p, pertinenzaIndex));
 
         let html = '<div class="photo-grid">';
 

@@ -304,46 +304,33 @@ const ReviewView = {
             });
         });
 
-        // Generate DOCX — prova server (report perfetto con template), fallback locale
+        // Generate Verbale DOCX — solo via server (template reale)
         document.getElementById('btn-generate-docx')?.addEventListener('click', async () => {
             await this._saveSigners();
-            // Prima sincronizza i dati al server, poi genera lato server
-            if (typeof Sync !== 'undefined' && Sync._isAPIAvailable()) {
-                // Sync dati aggiornati al server prima di generare
-                const synced = await Sync.syncViaAPI(this.sopId);
-                if (synced) {
-                    await Sync.requestReport(this.sopId, 'verbale');
-                } else {
-                    UI.toast('Sync fallita. Provo generazione locale...');
-                    if (typeof VerbaleGenerator !== 'undefined') {
-                        await VerbaleGenerator.generate(this.sopId);
-                    }
-                }
-            } else if (typeof VerbaleGenerator !== 'undefined') {
-                const updated = await DB.getSopralluogo(this.sopId);
-                await VerbaleGenerator.generate(this.sopId);
+            if (typeof Sync === 'undefined' || !Sync._isAPIAvailable()) {
+                UI.toast('Connessione al server necessaria per generare il verbale. Verifica la connessione internet.', 4000);
+                return;
+            }
+            const synced = await Sync.syncViaAPI(this.sopId);
+            if (synced) {
+                await Sync.requestReport(this.sopId, 'verbale');
             } else {
-                UI.toast('Generatore DOCX non disponibile');
+                UI.toast('Sincronizzazione fallita. Riprova quando hai connessione.', 4000);
             }
         });
 
-        // Generate Allegato Foto DOCX — stessa logica server > locale
+        // Generate Allegato Foto DOCX — solo via server (template reale)
         document.getElementById('btn-generate-allegato')?.addEventListener('click', async () => {
             await this._saveSigners();
-            if (typeof Sync !== 'undefined' && Sync._isAPIAvailable()) {
-                const synced = await Sync.syncViaAPI(this.sopId);
-                if (synced) {
-                    await Sync.requestReport(this.sopId, 'allegato');
-                } else {
-                    UI.toast('Sync fallita. Provo generazione locale...');
-                    if (typeof VerbaleGenerator !== 'undefined') {
-                        await VerbaleGenerator.generateAllegato(this.sopId);
-                    }
-                }
-            } else if (typeof VerbaleGenerator !== 'undefined') {
-                await VerbaleGenerator.generateAllegato(this.sopId);
+            if (typeof Sync === 'undefined' || !Sync._isAPIAvailable()) {
+                UI.toast('Connessione al server necessaria per generare l\'allegato foto. Verifica la connessione internet.', 4000);
+                return;
+            }
+            const synced = await Sync.syncViaAPI(this.sopId);
+            if (synced) {
+                await Sync.requestReport(this.sopId, 'allegato');
             } else {
-                UI.toast('Generatore DOCX non disponibile');
+                UI.toast('Sincronizzazione fallita. Riprova quando hai connessione.', 4000);
             }
         });
 
