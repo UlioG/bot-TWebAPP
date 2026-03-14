@@ -508,8 +508,9 @@ const Sync = {
                 .filter(Boolean);
 
             // Lega obs alle foto dettaglio tramite observation_key
-            if (room.obs && Array.isArray(room.obs)) {
-                room.obs.forEach((obs, i) => {
+            const obsList = room.observations || room.obs || [];
+            if (Array.isArray(obsList)) {
+                obsList.forEach((obs, i) => {
                     // Prova match con diversi formati di observation_key
                     const photo = roomPhotos.find(p => {
                         if (p.type !== 'dettaglio') return false;
