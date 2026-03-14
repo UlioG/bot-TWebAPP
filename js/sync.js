@@ -8,11 +8,8 @@
  * Soluzione: per payload > 4096 byte, usa fetch() verso relay bot API
  * invece di Telegram.WebApp.sendData().
  *
- * Indicatore sync 4 stati:
- * synced    — ack confermato dal backend
- * offline   — nessuna connessione
- * syncing   — inviato, in attesa ack
- * error     — invio fallito o ack con errore
+ * Header indicatore: Online / Offline (stato connessione server)
+ * Pulsante sync: sempre visibile nell'header, abilitato quando c'e' un sopralluogo attivo
  */
 const Sync = {
     isOnline() {
@@ -20,8 +17,8 @@ const Sync = {
     },
 
     /**
-     * Aggiorna indicatore sync nell'header — 4 stati
-     * @param {string} state - 'synced' | 'offline' | 'syncing' | 'error'
+     * Aggiorna indicatore connessione nell'header — 2 stati: online / offline
+     * @param {string} state - 'online' | 'offline'
      */
     updateIndicator(state) {
         const container = document.getElementById('sync-indicator');
@@ -31,20 +28,73 @@ const Sync = {
         const label = container.querySelector('.sync-label');
         if (!dot || !label) return;
 
-        // Stato forzato oppure auto-detect
-        const status = state || (this.isOnline() ? 'synced' : 'offline');
+        const status = state || (this.isOnline() ? 'online' : 'offline');
 
-        dot.classList.remove('synced', 'offline', 'syncing', 'error');
+        dot.classList.remove('online', 'offline');
         dot.classList.add(status);
 
-        const labels = {
-            synced: 'Sincronizzato',
-            offline: 'Offline',
-            syncing: 'Sync...',
-            error: 'Errore sync'
-        };
+        const labels = { online: 'Online', offline: 'Offline' };
         label.textContent = labels[status] || status;
         container.title = labels[status] || status;
+    },
+
+    /**
+     * Aggiorna stato visivo del pulsante sync nell'header.
+     * @param {string} state - 'idle' | 'syncing' | 'done' | 'error'
+     */
+    _updateSyncButton(state) {
+        const btn = document.getElementById('btn-sync');
+        if (!btn) return;
+
+        btn.classList.remove('syncing');
+
+        switch (state) {
+            case 'syncing':
+                btn.textContent = '⏳';
+                btn.classList.add('syncing');
+                break;
+            case 'done':
+                btn.textContent = '✓';
+                setTimeout(() => { btn.textContent = '⬆'; }, 2000);
+                break;
+            case 'error':
+                btn.textContent = '✕';
+                setTimeout(() => { btn.textContent = '⬆'; }, 2000);
+                break;
+            default:
+                btn.textContent = '⬆';
+        }
+    },
+
+    /**
+     * Abilita/disabilita il pulsante sync in base al contesto.
+     * Chiamato dal router quando cambia vista.
+     */
+    updateSyncButtonEnabled() {
+        const btn = document.getElementById('btn-sync');
+        if (!btn) return;
+
+        const sopId = (typeof App !== 'undefined') ? App.getSopralluogoId() : null;
+        btn.disabled = !sopId;
+    },
+
+    /**
+     * Sincronizza il sopralluogo attualmente aperto (dall'URL).
+     * Collegato al pulsante sync nell'header.
+     */
+    async syncCurrentSopralluogo() {
+        const sopId = (typeof App !== 'undefined') ? App.getSopralluogoId() : null;
+        if (!sopId) {
+            UI.toast('Apri un sopralluogo per sincronizzare');
+            return false;
+        }
+
+        if (!this._isAPIAvailable()) {
+            UI.toast('Server non raggiungibile');
+            return false;
+        }
+
+        return await this.syncViaAPI(sopId);
     },
 
     _refreshTimer: null,
@@ -134,15 +184,15 @@ const Sync = {
             if (resp.ok) {
                 const data = await resp.json();
                 if (data.status === 'ok') {
-                    this.updateIndicator('synced');
+                    this.updateIndicator('online');
                     return true;
                 }
             }
-            this.updateIndicator('error');
+            this.updateIndicator('offline');
             return false;
         } catch (e) {
             console.warn('[Tunnel] Health check fallito:', e.message);
-            if (!silent) this.updateIndicator('error');
+            if (!silent) this.updateIndicator('offline');
             return false;
         }
     },
@@ -250,16 +300,16 @@ const Sync = {
         // Se entra nel limite sendData e siamo in Telegram, usa sendData
         if (json.length <= 4096 && window.Telegram && Telegram.WebApp) {
             try {
-                this.updateIndicator('syncing');
+                this._updateSyncButton('syncing');
                 Telegram.WebApp.sendData(json);
                 sop.synced = true;
                 await DB.saveSopralluogo(sop);
-                this.updateIndicator('synced');
+                this._updateSyncButton('done');
                 UI.toast('Dati inviati al bot');
                 return true;
             } catch (e) {
                 console.error('Errore sendData:', e);
-                this.updateIndicator('error');
+                this._updateSyncButton('error');
                 UI.toast('Errore invio dati');
                 return false;
             }
@@ -288,7 +338,7 @@ const Sync = {
             return false;
         }
 
-        this.updateIndicator('syncing');
+        this._updateSyncButton('syncing');
 
         try {
             // Fase 1: invia metadata (sopralluogo + rooms + obs)
@@ -309,7 +359,7 @@ const Sync = {
                 if (resp.status === 409) {
                     const masterOp = err.master_operator || 'altro operatore';
                     UI.toast(`Unita\' gia\' assegnata a ${masterOp}. Multi-operatore solo per Parti Comuni.`, 5000);
-                    this.updateIndicator('error');
+                    this._updateSyncButton('error');
                     return false;
                 }
                 throw new Error(err.error || `HTTP ${resp.status}`);
@@ -363,7 +413,7 @@ const Sync = {
             sop.synced = true;
             await DB.saveSopralluogo(sop);
 
-            this.updateIndicator('synced');
+            this._updateSyncButton('done');
 
             // Fase E: toast differenziato per ruolo
             if (result.role === 'secondary') {
@@ -392,7 +442,7 @@ const Sync = {
             return true;
         } catch (e) {
             console.error('Errore sync API:', e);
-            this.updateIndicator('error');
+            this._updateSyncButton('error');
             UI.toast('Errore sincronizzazione: ' + e.message);
             return false;
         }
@@ -498,7 +548,7 @@ const Sync = {
             return false;
         }
 
-        this.updateIndicator('syncing');
+        this._updateSyncButton('syncing');
 
         try {
             const json = JSON.stringify(payload);
@@ -543,12 +593,12 @@ const Sync = {
 
             sop.synced = true;
             await DB.saveSopralluogo(sop);
-            this.updateIndicator('synced');
+            this._updateSyncButton('done');
             UI.toast('Dati sincronizzati');
             return true;
         } catch (e) {
             console.error('Errore relay sync:', e);
-            this.updateIndicator('error');
+            this._updateSyncButton('error');
             UI.toast('Errore sincronizzazione');
             return false;
         }

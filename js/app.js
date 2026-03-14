@@ -101,6 +101,11 @@ const App = {
             this.navigate('home');
         });
 
+        // Pulsante Sync nell'header
+        document.getElementById('btn-sync')?.addEventListener('click', () => {
+            Sync.syncCurrentSopralluogo();
+        });
+
         // Prima navigazione
         if (!location.hash || location.hash === '#') {
             this.navigate('home');
@@ -154,6 +159,9 @@ const App = {
 
         this.currentView = viewName;
         this.currentParams = params;
+
+        // Aggiorna pulsante sync (abilitato solo con sopralluogo attivo)
+        if (typeof Sync !== 'undefined') Sync.updateSyncButtonEnabled();
 
         // Libera object URL orfani dalla vista precedente
         if (typeof Photos !== 'undefined' && Photos.revokeAllUrls) {

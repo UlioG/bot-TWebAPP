@@ -192,7 +192,7 @@ const ReviewView = {
         } else if (!sop.synced || !sop.sync_role) {
             // Mai sincronizzato o ruolo non assegnato — non mostrare DOCX, potrebbe diventare secondario
             html += `<div style="background: #e3f2fd; border: 1px solid #90caf9; border-radius: 8px; padding: 12px; text-align:center;">
-                <div style="font-size: 13px;">\uD83D\uDD04 Sincronizza prima di generare il verbale.</div>
+                <div style="font-size: 13px;">Premi ⬆ nell\'header per sincronizzare, poi potrai generare il verbale.</div>
             </div>`;
         } else {
             html += `<button class="btn btn-primary" id="btn-generate-docx">\uD83D\uDCC4 Genera Verbale DOCX</button>`;

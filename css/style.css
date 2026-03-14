@@ -128,12 +128,6 @@ body {
     color: rgba(255, 255, 255, 0.75);
 }
 
-#header-right-slot {
-    display: flex;
-    align-items: center;
-    margin-left: 8px;
-}
-
 .sync-dot {
     width: 8px;
     height: 8px;
@@ -143,7 +137,31 @@ body {
 }
 .sync-dot.online { background: var(--success); }
 .sync-dot.offline { background: var(--warning); }
-.sync-dot.syncing { background: #ffffff; animation: pulse 1s infinite; }
+
+/* Sync button in header */
+.header-sync-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1.5px solid rgba(255, 255, 255, 0.5);
+    color: #ffffff;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 8px;
+    flex-shrink: 0;
+    line-height: 1;
+    min-width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.header-sync-btn:active { background: rgba(255, 255, 255, 0.35); }
+.header-sync-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.header-sync-btn.syncing {
+    animation: pulse 1s infinite;
+    pointer-events: none;
+}
 
 @keyframes pulse {
     0%, 100% { opacity: 1; }
