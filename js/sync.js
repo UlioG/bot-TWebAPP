@@ -409,6 +409,61 @@ const Sync = {
                 }
             }
 
+            // Fase 2b: genera e carica foto panoramiche con marker (_MARKED)
+            // Raccoglie tutte le rooms (main + pertinenze)
+            const allRoomsForMarkers = { ...(sop.rooms || {}) };
+            if (Array.isArray(sop.pertinenze)) {
+                for (const pert of sop.pertinenze) {
+                    if (pert && pert.rooms) {
+                        Object.assign(allRoomsForMarkers, pert.rooms);
+                    }
+                }
+            }
+
+            for (const [roomName, room] of Object.entries(allRoomsForMarkers)) {
+                const markerCoords = room.marker_coords;
+                if (!markerCoords || Object.keys(markerCoords).length === 0) continue;
+
+                // Fase E: skip vani scartati per secondario
+                if (result.role === 'secondary' && result.skipped_room_names &&
+                    result.skipped_room_names.includes(roomName)) {
+                    continue;
+                }
+
+                // Trova foto panoramiche di questo vano
+                const roomPanos = photos.filter(p =>
+                    p.room_name === roomName && p.type === 'panoramica' && p.blob
+                );
+
+                for (const pano of roomPanos) {
+                    try {
+                        const markedBlob = await MarkerView.renderMarkersOnPhoto(
+                            pano.blob, markerCoords, pano.filename
+                        );
+                        // Il filename _MARKED
+                        const baseName = (pano.filename || 'FOTO_PANORAMICA_1.jpg');
+                        const dotIdx = baseName.lastIndexOf('.');
+                        const markedFilename = dotIdx > 0
+                            ? baseName.substring(0, dotIdx) + '_MARKED' + baseName.substring(dotIdx)
+                            : baseName + '_MARKED.jpg';
+
+                        // Upload come foto "virtuale"
+                        const markedPhoto = {
+                            room_name: roomName,
+                            filename: markedFilename,
+                            blob: markedBlob
+                        };
+                        const ok = await this._uploadPhotoToAPI(sop, markedPhoto);
+                        if (ok) {
+                            uploaded++;
+                            console.log(`Marker foto caricata: ${markedFilename}`);
+                        }
+                    } catch (e) {
+                        console.error(`Errore generazione marker per ${pano.filename}:`, e);
+                    }
+                }
+            }
+
             // Marca sopralluogo come sincronizzato
             sop.synced = true;
             await DB.saveSopralluogo(sop);
