@@ -147,7 +147,17 @@ const DB = {
 
     async saveSopralluogo(data) {
         data.updated_at = Date.now();
-        return this.put('sopralluoghi', data);
+        try {
+            return await this.put('sopralluoghi', data);
+        } catch (e) {
+            if (e && (e.name === 'QuotaExceededError' || (e.message && e.message.includes('quota')))) {
+                console.error('[DB] Spazio esaurito! Impossibile salvare sopralluogo.', e);
+                if (typeof UI !== 'undefined' && UI.toast) {
+                    UI.toast('⚠️ Memoria dispositivo esaurita. Libera spazio o esporta i dati.', 5000);
+                }
+            }
+            throw e;
+        }
     },
 
     async deleteSopralluogo(id) {
@@ -190,7 +200,17 @@ const DB = {
     // ========== PHOTOS ==========
 
     async addPhoto(photoData) {
-        return this.put('photos', photoData);
+        try {
+            return await this.put('photos', photoData);
+        } catch (e) {
+            if (e && (e.name === 'QuotaExceededError' || (e.message && e.message.includes('quota')))) {
+                console.error('[DB] Spazio esaurito! Impossibile salvare foto.', e);
+                if (typeof UI !== 'undefined' && UI.toast) {
+                    UI.toast('⚠️ Memoria dispositivo esaurita. Impossibile salvare la foto.', 5000);
+                }
+            }
+            throw e;
+        }
     },
 
     async getPhoto(id) {

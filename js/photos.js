@@ -6,6 +6,7 @@ const Photos = {
     MAX_HEIGHT: 1920,
     THUMB_SIZE: 200,
     QUALITY: 0.85,
+    _activeObjectUrls: [],
 
     /**
      * Scatta foto con fotocamera
@@ -160,7 +161,9 @@ const Photos = {
     async getThumbnailUrl(photoId) {
         const photo = await DB.getPhoto(photoId);
         if (!photo || !photo.thumbnail) return null;
-        return URL.createObjectURL(photo.thumbnail);
+        const url = URL.createObjectURL(photo.thumbnail);
+        this._activeObjectUrls.push(url);
+        return url;
     },
 
     /**
@@ -169,7 +172,20 @@ const Photos = {
     async getFullUrl(photoId) {
         const photo = await DB.getPhoto(photoId);
         if (!photo || !photo.blob) return null;
-        return URL.createObjectURL(photo.blob);
+        const url = URL.createObjectURL(photo.blob);
+        this._activeObjectUrls.push(url);
+        return url;
+    },
+
+    /**
+     * Revoca tutti gli object URL attivi per liberare memoria.
+     * Chiamata automaticamente su navigazione tra view.
+     */
+    revokeAllUrls() {
+        for (const url of this._activeObjectUrls) {
+            try { URL.revokeObjectURL(url); } catch (e) { /* ignore */ }
+        }
+        this._activeObjectUrls = [];
     },
 
     /**
@@ -183,7 +199,11 @@ const Photos = {
         let html = '<div class="photo-grid">';
 
         for (const photo of photos) {
-            const thumbUrl = photo.thumbnail ? URL.createObjectURL(photo.thumbnail) : '';
+            let thumbUrl = '';
+            if (photo.thumbnail) {
+                thumbUrl = URL.createObjectURL(photo.thumbnail);
+                this._activeObjectUrls.push(thumbUrl);
+            }
             html += `
                 <div class="photo-thumb" data-photo-id="${photo.id}">
                     <img src="${thumbUrl}" alt="${photo.filename}">

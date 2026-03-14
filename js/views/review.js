@@ -189,8 +189,8 @@ const ReviewView = {
             html += `<div style="background: #fff8e1; border: 1px solid #ffc107; border-radius: 8px; padding: 12px; text-align:center;">
                 <div style="font-size: 13px;">\u26A0\uFE0F Solo il master puo\' generare il verbale.</div>
             </div>`;
-        } else if (!sop.synced && !sop.sync_role) {
-            // Mai sincronizzato — non mostrare DOCX, potrebbe diventare secondario
+        } else if (!sop.synced || !sop.sync_role) {
+            // Mai sincronizzato o ruolo non assegnato — non mostrare DOCX, potrebbe diventare secondario
             html += `<div style="background: #e3f2fd; border: 1px solid #90caf9; border-radius: 8px; padding: 12px; text-align:center;">
                 <div style="font-size: 13px;">\uD83D\uDD04 Sincronizza prima di generare il verbale.</div>
             </div>`;

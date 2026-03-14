@@ -731,7 +731,13 @@ const RoomsView = {
             let gridHtml = '<div class="photo-grid" style="padding: 0 16px;">';
             for (const photo of photos) {
                 if (photo.thumbnail) {
-                    const url = typeof photo.thumbnail === 'string' ? photo.thumbnail : URL.createObjectURL(photo.thumbnail);
+                    let url;
+                    if (typeof photo.thumbnail === 'string') {
+                        url = photo.thumbnail;
+                    } else {
+                        url = URL.createObjectURL(photo.thumbnail);
+                        if (typeof Photos !== 'undefined' && Photos._activeObjectUrls) Photos._activeObjectUrls.push(url);
+                    }
                     gridHtml += `<div class="photo-thumb" data-photo-id="${photo.id}">
                         <img src="${url}" alt="Panoramica">
                         <button class="photo-delete-btn" data-photo-id="${photo.id}">x</button>

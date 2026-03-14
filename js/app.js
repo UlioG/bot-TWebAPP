@@ -59,10 +59,24 @@ const App = {
         // Init sync: risolvi URL tunnel + avvia indicatore
         await Sync.init();
 
-        // Register Service Worker
+        // Register Service Worker + force activate waiting SW
         if ('serviceWorker' in navigator) {
             try {
-                await navigator.serviceWorker.register('./sw.js');
+                const reg = await navigator.serviceWorker.register('./sw.js');
+                // Se c'è un SW in attesa, attivalo subito per evitare cache stale
+                if (reg.waiting) {
+                    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                            }
+                        });
+                    }
+                });
             } catch (e) {
                 console.warn('Service Worker registration failed:', e);
             }
@@ -140,6 +154,11 @@ const App = {
 
         this.currentView = viewName;
         this.currentParams = params;
+
+        // Libera object URL orfani dalla vista precedente
+        if (typeof Photos !== 'undefined' && Photos.revokeAllUrls) {
+            Photos.revokeAllUrls();
+        }
 
         // Render vista
         const content = document.getElementById('app-content');
