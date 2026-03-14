@@ -110,19 +110,26 @@ const ReviewView = {
         for (const roomName of roomNames) {
             const room = rooms[roomName];
             const observations = room.observations || [];
-            const finishLabel = room.finishes ? ` (${room.finishes})` : '';
             const obsCount = observations.length;
+
+            // Header vano come reports.py (es. "VANO 3: Soggiorno, C/S;")
+            const roomHeader = Formatters.generateRoomHeader(roomName, room);
 
             // Genera testo completo del vano
             const roomText = Formatters.generateFullRoomText(roomName, room);
             const hasCustom = !!room.custom_room_text;
 
+            // Vani con disclaimer: mostra ma segnala come skip
+            const isDisclaimer = room.status && room.status !== 'accessible';
+
             const sectionId = `room_${roomNames.indexOf(roomName)}`;
             html += this._renderEditableSection({
                 id: sectionId,
-                title: `${esc(roomName).toUpperCase()}${esc(finishLabel)}`,
-                subtitle: `${obsCount} oss. | ${UI.statusBadge(room.status)}`,
-                text: roomText,
+                title: esc(roomHeader),
+                subtitle: isDisclaimer
+                    ? `${UI.statusBadge(room.status)} (aggregato a fine verbale)`
+                    : `${obsCount} oss.`,
+                text: isDisclaimer ? '(Questo vano viene riportato nella sezione note a fine verbale)' : roomText,
                 isCustom: hasCustom,
                 esc,
                 roomName: roomName
