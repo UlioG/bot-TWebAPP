@@ -507,15 +507,21 @@ const Sync = {
                 .map(p => p.filename)
                 .filter(Boolean);
 
-            // Lega obs alle foto dettaglio tramite observation_key
+            // Lega obs alle foto dettaglio tramite photo_id / observation_key / obs_id
             const obsList = room.observations || room.obs || [];
             if (Array.isArray(obsList)) {
                 obsList.forEach((obs, i) => {
-                    // Prova match con diversi formati di observation_key
                     const photo = roomPhotos.find(p => {
                         if (p.type !== 'dettaglio') return false;
+                        // 1. Match per photo_id dell'obs (il modo principale: obs.photo_id == photo.id)
+                        if (obs.photo_id && p.id === obs.photo_id) return true;
+                        // 2. Match per observation_key == obs_id
                         const key = p.observation_key;
-                        return key === `obs_${i}` || key === String(i) || key === i;
+                        if (key && (key === obs.obs_id ||
+                                    key === `obs_${i}` ||
+                                    key === String(i) ||
+                                    key === i)) return true;
+                        return false;
                     });
                     obs.photo_filename = photo ? photo.filename : null;
                 });
