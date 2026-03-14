@@ -608,9 +608,49 @@ const Sync = {
     // ========== PAYLOAD BUILDER ==========
 
     /**
-     * Costruisce payload sopralluogo per sync
+     * Costruisce payload sopralluogo per sync.
+     * TRASFORMA i dati dal formato interno webapp al formato atteso da
+     * reports.py (unit_info.json / metadata.json / global_notes.json).
      */
     _buildPayload(sop) {
+        // --- Owner: oggetto {type, name, company_name, ...} → stringa ---
+        const ownerStr = this._ownerToString(sop.owner);
+
+        // --- Attendees: metro_coll array → stringa ---
+        const att = sop.attendees || {};
+        const metroCollStr = Array.isArray(att.metro_coll)
+            ? att.metro_coll.filter(Boolean).join(', ')
+            : (att.metro_coll || '');
+
+        // --- Signers: oggetto separato → campi flat ---
+        const sig = sop.signers || {};
+        const sigEnabled = sop.signer_enabled || {};
+
+        // --- Start time: ISO → DD/MM/YYYY HH:MM ---
+        let startTimeStr = '';
+        if (sop.start_time) {
+            try {
+                const dt = new Date(sop.start_time);
+                if (!isNaN(dt.getTime())) {
+                    const dd = String(dt.getDate()).padStart(2, '0');
+                    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                    const yyyy = dt.getFullYear();
+                    const hh = String(dt.getHours()).padStart(2, '0');
+                    const mi = String(dt.getMinutes()).padStart(2, '0');
+                    startTimeStr = `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+                }
+            } catch (e) { /* fallback stringa vuota */ }
+        }
+
+        // --- Rooms: trasforma ogni vano ---
+        const transformedRooms = {};
+        for (const [name, room] of Object.entries(sop.rooms || {})) {
+            transformedRooms[name] = this._transformRoom(room);
+        }
+
+        // --- Proprietario assente ---
+        const propAssente = sop.proprietario_assente || false;
+
         return {
             id: sop.id,
             building_code: sop.building_code,
@@ -624,9 +664,18 @@ const Sync = {
             subalterno: sop.subalterno,
             unit_internal: sop.unit_internal,
             unit_name: sop.unit_name,
-            owner: sop.owner,
-            attendees: sop.attendees,
-            rooms: sop.rooms,
+            // Dati anagrafici PRE-FORMATTATI (stringhe)
+            owner: ownerStr,
+            attendees_metro_tech: att.metro_tech || '',
+            attendees_metro_coll: metroCollStr,
+            attendees_rm: att.rm || '',
+            signer_metro_tech: sig.metro_tech || att.metro_tech || '',
+            signer_rm: sig.rm || att.rm || '',
+            signer_metro_coll: sig.metro_coll || metroCollStr,
+            signer_owner: sig.proprietario || ownerStr,
+            signer_enabled: sigEnabled,
+            // Vani trasformati
+            rooms: transformedRooms,
             pert_order: sop.pert_order,
             operator_note: sop.operator_note,
             global_notes: sop.global_notes,
@@ -636,12 +685,121 @@ const Sync = {
             custom_cappello: sop.custom_cappello,
             custom_chiusura: sop.custom_chiusura,
             custom_unit_line: sop.custom_unit_line,
-            start_time: sop.start_time,
+            start_time: startTimeStr,
             completed: sop.completed,
             operator_telegram_id: sop.operator_telegram_id,
             operator_telegram_name: sop.operator_telegram_name,
-            rivestimento: sop.rivestimento
+            rivestimento: sop.rivestimento,
+            proprietario_assente: propAssente,
+            proprietario_assente_note: sop.proprietario_assente_note || ''
         };
+    },
+
+    /**
+     * Converte oggetto owner in stringa per reports.py.
+     * persona: "Mario Rossi" | societa: "ACME (Amm.re Mario Rossi)"
+     * Aggiunge altri presenti se ci sono.
+     */
+    _ownerToString(owner) {
+        if (!owner) return '';
+        if (typeof owner === 'string') return owner;
+
+        let str = '';
+        if (owner.type === 'societa') {
+            str = owner.company_name || '';
+            if (owner.company_admin) {
+                str += ` (Amm.re ${owner.company_admin})`;
+            }
+        } else {
+            str = owner.name || '';
+        }
+
+        // Altri presenti per la proprieta
+        if (owner.others_present && Array.isArray(owner.others_present)) {
+            const others = owner.others_present.filter(Boolean).join(', ');
+            if (others) str += `, ${others}`;
+        }
+
+        return str;
+    },
+
+    /**
+     * Trasforma dati di un vano dal formato webapp al formato reports.py.
+     * - status → disclaimer_type
+     * - wall_count → room_wall_count
+     * - observations: element+wall merge, infisso_location→infisso_loc, parz_ingombra→notes
+     */
+    _transformRoom(room) {
+        const t = {};
+
+        // Copia campi base
+        t.room_number = room.room_number;
+        t.room_name = room.room_name;
+        t.destination = room.destination;
+        t.finishes = room.finishes;
+        t.has_cdp = room.has_cdp || false;
+        t.floor = room.floor;
+        t.manual_text = room.manual_text;
+        t.custom_room_text = room.custom_room_text;
+        t.stair_subsection = room.stair_subsection;
+        t.marker_coords = room.marker_coords;
+        t.completed_surfaces = room.completed_surfaces;
+        t.photos = room.photos;
+
+        // status → disclaimer_type (NON_VALUTABILE, NON_ACCESSIBILE, NON_AUTORIZZATO)
+        const statusMap = {
+            'non_valutabile': 'NON_VALUTABILE',
+            'non_accessibile': 'NON_ACCESSIBILE',
+            'non_autorizzato': 'NON_AUTORIZZATO'
+        };
+        if (room.status && statusMap[room.status]) {
+            t.disclaimer_type = statusMap[room.status];
+        }
+        t.status = room.status; // conserva per UI
+
+        // wall_count → room_wall_count
+        if (room.wall_count != null) {
+            t.room_wall_count = room.wall_count;
+        }
+
+        // Trasforma osservazioni
+        if (Array.isArray(room.observations)) {
+            t.observations = room.observations.map(obs => this._transformObs(obs));
+        } else {
+            t.observations = [];
+        }
+
+        return t;
+    },
+
+    /**
+     * Trasforma singola osservazione dal formato webapp al formato reports.py.
+     * - element "Pareti" + wall "Parete A" → element "Parete A"
+     * - infisso_location → infisso_loc
+     * - parz_ingombra bool → aggiunge "parzialmente ingombra" nelle notes
+     */
+    _transformObs(obs) {
+        const t = { ...obs };
+
+        // Element + wall merge: "Pareti" + "Parete A" → "Parete A"
+        if (t.element === 'Pareti' && t.wall) {
+            t.element = t.wall;
+        }
+
+        // infisso_location → infisso_loc (reports.py legge infisso_loc)
+        if (t.infisso_location && !t.infisso_loc) {
+            t.infisso_loc = t.infisso_location;
+        }
+
+        // parz_ingombra → inserisce nelle notes
+        if (t.parz_ingombra) {
+            const piText = 'parzialmente ingombra';
+            if (!t.notes || !t.notes.toLowerCase().includes(piText)) {
+                t.notes = t.notes ? `${t.notes}, ${piText}` : piText;
+            }
+        }
+
+        return t;
     },
 
     /**
