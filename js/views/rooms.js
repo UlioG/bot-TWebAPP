@@ -304,7 +304,7 @@ const RoomsView = {
 
         // PC Categories
         container.querySelectorAll('.pc-cat-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const cat = btn.dataset.cat;
                 if (cat === 'vani') {
                     this._showAddRoomPC(sop);
@@ -312,6 +312,10 @@ const RoomsView = {
                     App.navigate(`stairs/${this.sopId}`);
                 } else if (cat === 'prospetti') {
                     this._addProspettiRoom(sop);
+                } else if (cat === 'pertinenze') {
+                    // Pertinenze dentro PC: setta flag e naviga
+                    await Events.dispatch('update_setup', this.sopId, { pert_order: 'pert_pc' });
+                    App.navigate(`pertinenze/${this.sopId}`);
                 }
             });
         });
@@ -693,11 +697,12 @@ const RoomsView = {
             <button class="btn btn-outline" id="btn-manual-text">✏️ Testo Manuale</button>`;
 
         // Stair Gruppo B: Continua / Concludi buttons
-        if (isStair && isPC && typeof StairsView !== 'undefined' && StairsView._direction) {
-            const dirLabel = StairsView._direction === 'salendo' ? 'Salire' : 'Scendere';
-            const dirIcon = StairsView._direction === 'salendo' ? '⬆️' : '⬇️';
-            html += `<button class="btn btn-outline" id="btn-stair-continue">${dirIcon} Continua a ${dirLabel}</button>`;
-            html += `<button class="btn btn-outline" id="btn-stair-conclude">🏁 Concludi Scala</button>`;
+        if (isStair && isPC && typeof StairsView !== 'undefined') {
+            const dirInfo = StairsView.getDirectionInfo(sop);
+            if (dirInfo) {
+                html += `<button class="btn btn-outline" id="btn-stair-continue">${dirInfo.icon} Continua a ${UI._escapeHtml(dirInfo.label)}</button>`;
+                html += `<button class="btn btn-outline" id="btn-stair-conclude">🏁 Concludi Scala</button>`;
+            }
         }
 
         // PC: pulsante per tornare al menu categorie
@@ -895,9 +900,11 @@ const RoomsView = {
 
         // Stair Gruppo B: Continua / Concludi
         document.getElementById('btn-stair-continue')?.addEventListener('click', () => {
+            StairsView.sopId = this.sopId;
             StairsView.continueToNextFloor();
         });
         document.getElementById('btn-stair-conclude')?.addEventListener('click', () => {
+            StairsView.sopId = this.sopId;
             StairsView.concludeStair();
         });
 

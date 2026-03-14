@@ -637,17 +637,13 @@ const ProspettiView = {
             hrefStr = hrefStr.trim();
         }
 
-        // Naviga al wizard con parametri prospetto
-        // Il wizard leggera' prosp_floor e prosp_href dal hash
-        const room = encodeURIComponent(this._currentProspetto);
-        let wizardHash = `wizard/${this.sopId}/${room}`;
-        // Aggiungi params come query dopo il hash
-        const extras = [];
-        if (this._tempProspFloor) extras.push(`prosp_floor=${encodeURIComponent(this._tempProspFloor)}`);
-        if (hrefStr) extras.push(`prosp_href=${encodeURIComponent(hrefStr)}`);
-        if (extras.length > 0) wizardHash += '?' + extras.join('&');
+        // Salva contesto prospetto come proprietà leggibili dal wizard
+        this._lastProspFloor = this._tempProspFloor || '';
+        this._lastProspHref = hrefStr || '';
 
-        App.navigate(wizardHash);
+        // Naviga al wizard
+        const room = encodeURIComponent(this._currentProspetto);
+        App.navigate(`wizard/${this.sopId}/${room}`);
     },
 
     // ========== STATO PROSPETTO ==========

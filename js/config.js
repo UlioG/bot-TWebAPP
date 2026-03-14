@@ -13,7 +13,7 @@ const CONFIG = {
     UNIT_TYPES_WITH_SUB: ['Abitazione', 'Ufficio', 'Negozio', 'Autorimessa'],
 
     // Tipi che possono avere pertinenze
-    PERTINENZA_PARENT_TYPES: ['Abitazione', 'Ufficio'],
+    PERTINENZA_PARENT_TYPES: ['Abitazione', 'Ufficio', 'Negozio'],
 
     // Tipi di pertinenza
     PERTINENZA_TYPES: ['Cantina', 'Soffitta', 'Box', 'Posto auto'],
@@ -21,7 +21,8 @@ const CONFIG = {
     // ========== TIPI VANO ==========
     ROOM_TYPES: [
         'INGRESSO', 'STANZA', 'DISIMPEGNO', 'CORRIDOIO', 'BAGNO',
-        'SOGGIORNO', 'SALONE', 'CUCINA', 'DEPOSITO', 'UFFICIO', 'SCALA'
+        'SOGGIORNO + AC', 'CUCINA', 'DEPOSITO', 'UFFICIO', 'SCALA',
+        'BALCONE', 'TERRAZZO'
     ],
 
     // Destinazioni vano per Parti Comuni
@@ -70,6 +71,12 @@ const CONFIG = {
 
     // ========== ELEMENTI ISPEZIONABILI ==========
     ELEMENTS: ['Pareti', 'Soffitto', 'Pavimento', 'Elemento/Varco', 'Balcone'],
+
+    // Elementi per vano con destinazione BALCONE (no Soffitto, Sotto balcone al posto di Soffitto)
+    ELEMENTS_BALCONE: ['Pareti', 'Sotto balcone superiore', 'Pavimento', 'Elemento/Varco'],
+
+    // Elementi per vano con destinazione TERRAZZO (no Soffitto, no Sotto balcone)
+    ELEMENTS_TERRAZZO: ['Pareti', 'Pavimento', 'Elemento/Varco'],
 
     // Elementi per Prospetti (solo 2)
     ELEMENTS_PROSPETTI: ['Pareti', 'Elemento/Varco'],
@@ -257,6 +264,7 @@ const CONFIG = {
         switch (element) {
             case 'Pareti': return this.POS_WALL;
             case 'Soffitto': return this.POS_CEIL;
+            case 'Sotto balcone superiore': return this.POS_CEIL;
             case 'Pavimento': return this.POS_FLOOR;
             case 'Balcone': return this.POS_BALCONE;
             case 'Elemento/Varco': return this.VARCO_DEFECT_POSITIONS;
@@ -268,6 +276,7 @@ const CONFIG = {
         switch (element) {
             case 'Pareti':
             case 'Soffitto':
+            case 'Sotto balcone superiore':
             case 'Pavimento':
             case 'Balcone':
                 return this.DEFECTS_COMMON;
@@ -278,10 +287,20 @@ const CONFIG = {
         }
     },
 
-    getElements(isProspetto = false, isStair = false, stairSubsection = null) {
+    getElements(isProspetto = false, isStair = false, stairSubsection = null, roomDestination = null) {
         if (isProspetto) return this.ELEMENTS_PROSPETTI;
         if (isStair && stairSubsection) return this.getStairElements(stairSubsection);
+        if (roomDestination === 'BALCONE') return this.ELEMENTS_BALCONE;
+        if (roomDestination === 'TERRAZZO') return this.ELEMENTS_TERRAZZO;
         return this.ELEMENTS;
+    },
+
+    isBalconeRoom(destination) {
+        return destination === 'BALCONE';
+    },
+
+    isTerrazzoRoom(destination) {
+        return destination === 'TERRAZZO';
     },
 
     getVarcoSubElements(isProspetto = false) {
@@ -292,8 +311,12 @@ const CONFIG = {
         return isPC ? this.ROOM_TYPES_PC : this.ROOM_TYPES;
     },
 
-    isPartiComuni(unitName) {
-        return unitName === 'Parti Comuni' || (unitName && unitName.startsWith('Parti Comuni'));
+    isPartiComuni(sopOrName) {
+        // Accetta sia stringa (unit_name) sia oggetto sop
+        const name = (typeof sopOrName === 'object' && sopOrName !== null)
+            ? (sopOrName.unit_name || sopOrName.unit_type || '')
+            : (sopOrName || '');
+        return name === 'Parti Comuni' || name.startsWith('Parti Comuni');
     },
 
     isProspettoRoom(roomName) {
@@ -338,6 +361,28 @@ const CONFIG = {
     WORKER_URL: 'https://tundai.g-nudi.workers.dev',
 
     API_TOKEN: '',          // Solo per test fuori da Telegram (fallback Bearer token)
+
+    /**
+     * cleanTextHelper - allineato a clean_text_helper() di reports.py
+     * Rimuove parentesi, lowercase, applica contrazioni standard
+     */
+    cleanTextHelper(text) {
+        if (!text) return '';
+        let t = text.trim();
+        // Rimuovi parentesi
+        t = t.replace(/[()]/g, '');
+        // Lowercase
+        t = t.toLowerCase();
+        // Contrazioni (allineate a reports.py)
+        t = t.replace(/\bvt verticale\b/g, 'vt');
+        t = t.replace(/\boz orizzontale\b/g, 'oz');
+        t = t.replace(/\bdg diagonale\b/g, 'dg');
+        t = t.replace(/\bultimo tratto ut\b/g, 'ut');
+        t = t.replace(/\bdiedro dd\b/g, 'dd');
+        // Normalizza spazi multipli
+        t = t.replace(/\s+/g, ' ').trim();
+        return t;
+    },
 
     // ========== SYNC RELAY (legacy, fallback) ==========
     // Token relay bot e chat_id gruppo sync (Fase 0)

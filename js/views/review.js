@@ -40,10 +40,12 @@ const ReviewView = {
         html += UI.phaseTabs(3);
 
         // Statistiche
-        let totalObs = 0, totalPhotos = 0;
+        let totalObs = 0, totalPhotos = 0, unanalyzedRooms = [];
         for (const name of roomNames) {
-            totalObs += (rooms[name].observations || []).length;
+            const obsCount = (rooms[name].observations || []).length;
+            totalObs += obsCount;
             totalPhotos += (rooms[name].photos || []).length;
+            if (obsCount === 0) unanalyzedRooms.push(name);
         }
         // Fase E: statistiche extra per secondario
         let statsExtra = '';
@@ -62,6 +64,23 @@ const ReviewView = {
                 ${statsExtra}
             </div></div>
         `);
+
+        // Warning: vani non analizzati (F5)
+        if (unanalyzedRooms.length > 0) {
+            const esc2 = UI._escapeHtml;
+            html += `<div style="background: #fff3e0; border: 1px solid #ff9800; border-radius: 8px; padding: 12px; margin: 0 16px 8px;">
+                <div style="font-weight: 600; font-size: 13px; color: #e65100;">⚠️ ${unanalyzedRooms.length} vano/i senza osservazioni</div>
+                <div style="font-size: 12px; color: #666; margin-top: 4px;">${unanalyzedRooms.map(n => esc2(n)).join(', ')}</div>
+            </div>`;
+        }
+
+        // Planimetria: carica/sostituisci (A7)
+        const hasPlanimetria = sop.planimetria_photos && sop.planimetria_photos.length > 0;
+        html += `<div style="padding: 0 16px 8px; display:flex; gap:8px;">
+            <button class="btn btn-outline" id="btn-plan-replace" style="flex:1; font-size:13px;">
+                ${hasPlanimetria ? '🗺 Sostituisci Planimetria' : '🗺 Carica Planimetria'}
+            </button>
+        </div>`;
 
         // ================================================================
         // SEZIONE 1: TESTO APERTURA (cappello)
@@ -118,9 +137,15 @@ const ReviewView = {
             for (let i = 0; i < sop.pertinenze.length; i++) {
                 const pert = sop.pertinenze[i];
                 const pertRoomCount = Object.keys(pert.rooms || {}).length;
+                // Build display name
+                const pertParts = [pert.type || 'Pertinenza'];
+                if (pert.sub) pertParts.push(`Sub. ${pert.sub}`);
+                if (pert.numero) pertParts.push(`N. ${pert.numero}`);
+                let pertDisplayName = pertParts.join(' - ');
+                if (pert.piano) pertDisplayName += ` (${pert.piano})`;
                 pertHtml += UI.cell({
                     icon: pert.completed ? '\u2705' : '\u2B1C',
-                    title: pert.type,
+                    title: pertDisplayName,
                     subtitle: `${pertRoomCount} vani`,
                     dataId: `pert_${i}`,
                     chevron: true
@@ -320,6 +345,11 @@ const ReviewView = {
             });
         });
 
+        // ---- Planimetria sostituisci/carica ----
+        document.getElementById('btn-plan-replace')?.addEventListener('click', () => {
+            self._replacePlanimetria();
+        });
+
         // ---- Sezioni editabili generiche ----
         document.querySelectorAll('[data-edit-section]').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -434,14 +464,9 @@ const ReviewView = {
             UI.confirmAction(
                 'Riaprire il sopralluogo per modifiche?\n\nPotrai modificare vani e osservazioni, poi rigenerare il verbale.',
                 async () => {
-                    const fresh = await DB.getSopralluogo(this.sopId);
-                    if (fresh) {
-                        fresh.completed = false;
-                        fresh.phase = 2;
-                        await DB.saveSopralluogo(fresh);
-                        UI.toast('Sopralluogo riaperto');
-                        App.navigate(`rooms/${this.sopId}`);
-                    }
+                    await Events.dispatch('reopen_sopralluogo', this.sopId, {});
+                    UI.toast('Sopralluogo riaperto');
+                    App.navigate(`rooms/${this.sopId}`);
                 }
             );
         });
@@ -560,6 +585,32 @@ const ReviewView = {
                 UI.toast('Nota aggiunta');
                 this.render(document.getElementById('app-content'), [this.sopId]);
             }, { multiline: true });
+        });
+    },
+
+    _replacePlanimetria() {
+        const buttons = [
+            { value: 'camera', label: '📷 Scatta Foto' },
+            { value: 'gallery', label: '🖼 Galleria' }
+        ];
+        UI.choiceModal('Planimetria', buttons, async (choice) => {
+            let result = null;
+            if (choice === 'camera') {
+                result = typeof Photos !== 'undefined' ? await Photos.takePhoto() : null;
+            } else {
+                result = typeof Photos !== 'undefined' ? await Photos.fromGallery() : null;
+            }
+            if (!result) return;
+
+            const { id, filename } = await Photos.save(this.sopId, '__planimetria__', 'planimetria', result.blob, result.thumbnail);
+            // Elimina vecchia planimetria se esiste
+            const sop = await DB.getSopralluogo(this.sopId);
+            if (sop && sop.planimetria_photo_id) {
+                await Events.dispatch('delete_planimetria', this.sopId, { photo_id: sop.planimetria_photo_id });
+            }
+            await Events.dispatch('upload_planimetria', this.sopId, { photo_id: id });
+            UI.toast('Planimetria aggiornata');
+            this.render(document.getElementById('app-content'), [this.sopId]);
         });
     },
 

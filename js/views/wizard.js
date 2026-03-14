@@ -29,7 +29,7 @@ const WizardView = {
         // Determina tipo room
         const rooms = Events.getActiveRooms(this._sop);
         const room = rooms[this.roomName];
-        const isStair = room && CONFIG.isStairRoom(room);
+        const isStair = room && CONFIG.isStairRoom(this.roomName);
         const isProsp = CONFIG.isProspettoRoom(this.roomName);
 
         // Avviso se il vano ha testo custom nel riepilogo
@@ -39,6 +39,12 @@ const WizardView = {
 
         // Reset wizard state
         this.obs = this._emptyObs();
+
+        // Prospetti: leggi contesto piano/HREF da ProspettiView
+        if (isProsp && typeof ProspettiView !== 'undefined') {
+            this.obs.prosp_floor = ProspettiView._lastProspFloor || null;
+            this.obs.prosp_href = ProspettiView._lastProspHref || null;
+        }
 
         // Scala: parti da stair_subsection
         if (isStair) {
@@ -59,13 +65,14 @@ const WizardView = {
             specifics: [], attributes: [], prosecutions: [],
             notes: '', photo_id: null, non_visibile: false, parz_ingombra: false,
             infisso_type: null, infisso_location: null, infisso_wall: null,
-            infisso_which: null, infisso_sub_pos: null,
-            stair_subsection: null, has_cdp: false
+            infisso_which: null, infisso_confine: null, infisso_sub_pos: null,
+            stair_subsection: null, has_cdp: false,
+            prosp_floor: null, prosp_href: null
         };
     },
 
     renderStep(container) {
-        if (!container) container = document.getElementById('content');
+        if (!container) container = document.getElementById('app-content');
 
         switch (this.step) {
             case 'stair_subsection': return this._renderStairSubsection(container);
@@ -78,6 +85,7 @@ const WizardView = {
             case 'balcone_sub': return this._renderBalconeSub(container);
             case 'pre_check': return this._renderPreCheck(container);
             case 'infisso_type': return this._renderInfissoType(container);
+            case 'infisso_confine': return this._renderInfissoConfine(container);
             case 'infisso_location': return this._renderInfissoLocation(container);
             case 'infisso_wall': return this._renderInfissoWall(container);
             case 'infisso_which': return this._renderInfissoWhich(container);
@@ -111,7 +119,8 @@ const WizardView = {
             'balcone_sub': 'element',
             'pre_check': this._preCheckBackTarget(),
             'infisso_type': isProsp ? 'element_prospetto' : 'element',
-            'infisso_location': 'infisso_type',
+            'infisso_confine': 'infisso_type',
+            'infisso_location': this.obs.infisso_confine !== null ? 'infisso_confine' : 'infisso_type',
             'infisso_wall': 'infisso_location',
             'infisso_which': 'infisso_wall',
             'infisso_sub_pos': 'infisso_which',
@@ -177,7 +186,8 @@ const WizardView = {
 
     _renderStairSubsection(container) {
         UI.setTitle('Sotto-sezione Scala');
-        const subsections = CONFIG.STAIR_SUBSECTIONS;
+        const rampCount = (this._sop && this._sop.stair_ramp_count) || 2;
+        const subsections = CONFIG.generateStairSubsections(rampCount);
 
         let html = this._header(this.roomName, 'Seleziona la sotto-sezione');
         html += UI.buttonGrid(subsections.map(s => ({ value: s, label: s })), { cols: 1 });
@@ -269,7 +279,11 @@ const WizardView = {
         if (isStair) {
             elements = CONFIG.getStairElements(this.obs.stair_subsection);
         } else {
-            elements = CONFIG.getElements();
+            // Rileva destinazione vano per Balcone/Terrazzo
+            const rooms = this._sop ? Events.getActiveRooms(this._sop) : {};
+            const room = rooms[this.roomName];
+            const destination = room?.destination || null;
+            elements = CONFIG.getElements(false, false, null, destination);
         }
 
         let html = this._header(this.roomName, 'Seleziona elemento');
@@ -282,6 +296,7 @@ const WizardView = {
                 this.obs.element = btn.dataset.value;
                 if (this.obs.element === 'Pareti') this.step = 'wall';
                 else if (this.obs.element === 'Balcone') this.step = 'balcone_sub';
+                else if (this.obs.element === 'Sotto balcone superiore') this.step = 'pre_check';
                 else if (this.obs.element === 'Elemento/Varco') this.step = 'infisso_type';
                 else if (CONFIG.STAIR_GRADINO_ELEMENTS && CONFIG.STAIR_GRADINO_ELEMENTS.includes(this.obs.element)) this.step = 'stair_gradino';
                 else this.step = 'pre_check';
@@ -402,6 +417,11 @@ const WizardView = {
             btn.addEventListener('click', async () => {
                 const val = btn.dataset.value;
                 if (val === 'NDR') {
+                    // NDR su Pareti senza parete specifica → chiedi wall_count per split
+                    if (this.obs.element === 'Pareti' && !this.obs.wall) {
+                        this._askWallCountForNdr();
+                        return;
+                    }
                     await Events.dispatch('set_room_ndr', this.sopId, {
                         room_name: this.roomName, element: this.obs.element,
                         wall: this.obs.wall, balcone_sub: this.obs.balcone_sub,
@@ -459,9 +479,106 @@ const WizardView = {
         container.querySelectorAll('.btn-choice').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.obs.infisso_type = btn.dataset.value;
+                // Porta interna → chiedi vano confinante (allineato a bot.py)
+                if (this.obs.infisso_type.toLowerCase().includes('porta interna')) {
+                    this.step = 'infisso_confine';
+                } else {
+                    this.step = 'infisso_location';
+                }
+                this.renderStep();
+            });
+        });
+        this._bindBack();
+    },
+
+    // ========== INFISSO CONFINE (Vs quale vano?) ==========
+
+    _renderInfissoConfine(container) {
+        UI.setTitle('Vano Confinante');
+        let html = this._header('Porta interna', 'Verso quale vano confina?');
+
+        // Lista vani esistenti (escluso il vano corrente)
+        const rooms = this._sop ? Events.getActiveRooms(this._sop) : {};
+        const roomNames = Object.keys(rooms).filter(n => n !== this.roomName);
+
+        if (roomNames.length > 0) {
+            const choices = roomNames.map(n => ({ value: n, label: n }));
+            choices.push({ value: '__manual__', label: '✏️ Scrivi a mano' });
+            choices.push({ value: '__skip__', label: 'Salta' });
+            html += UI.buttonGrid(choices, { cols: 2 });
+        } else {
+            html += `<div style="padding: 0 16px;">
+                ${UI.formInput({ id: 'confine-manual', placeholder: 'Es. Cucina, Bagno, Corridoio' }).trim()}
+            </div>
+            <div style="padding: 8px 16px; display:flex; gap:8px;">
+                <button class="btn btn-primary" id="btn-confine-ok" style="flex:1;">Avanti</button>
+                <button class="btn btn-secondary" id="btn-confine-skip" style="flex:1;">Salta</button>
+            </div>`;
+        }
+        html += this._backBtn();
+        container.innerHTML = html;
+
+        if (roomNames.length > 0) {
+            container.querySelectorAll('.btn-choice').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const val = btn.dataset.value;
+                    if (val === '__skip__') {
+                        this.obs.infisso_confine = null;
+                        this.step = 'infisso_location';
+                        this.renderStep();
+                    } else if (val === '__manual__') {
+                        // Re-render con input manuale
+                        this._renderInfissoConfineManual(container);
+                    } else {
+                        // Estrai il nome del vano dalla label (potrebbe essere "1. Cucina")
+                        const roomData = rooms[val];
+                        const confName = roomData?.destination || roomData?.room_name || val;
+                        this.obs.infisso_confine = confName;
+                        this.step = 'infisso_location';
+                        this.renderStep();
+                    }
+                });
+            });
+        } else {
+            document.getElementById('btn-confine-ok')?.addEventListener('click', () => {
+                const val = (document.getElementById('confine-manual')?.value || '').trim();
+                this.obs.infisso_confine = val || null;
                 this.step = 'infisso_location';
                 this.renderStep();
             });
+            document.getElementById('btn-confine-skip')?.addEventListener('click', () => {
+                this.obs.infisso_confine = null;
+                this.step = 'infisso_location';
+                this.renderStep();
+            });
+        }
+        this._bindBack();
+    },
+
+    _renderInfissoConfineManual(container) {
+        let html = this._header('Porta interna', 'Scrivi il vano confinante');
+        html += `<div style="padding: 0 16px;">
+            ${UI.formInput({ id: 'confine-manual', placeholder: 'Es. Cucina, Bagno, Corridoio' }).trim()}
+        </div>
+        <div style="padding: 8px 16px; display:flex; gap:8px;">
+            <button class="btn btn-primary" id="btn-confine-ok" style="flex:1;">Avanti</button>
+            <button class="btn btn-secondary" id="btn-confine-skip" style="flex:1;">Salta</button>
+        </div>`;
+        html += this._backBtn();
+        container.innerHTML = html;
+
+        const input = document.getElementById('confine-manual');
+        if (input) setTimeout(() => input.focus(), 100);
+
+        document.getElementById('btn-confine-ok')?.addEventListener('click', () => {
+            this.obs.infisso_confine = (input?.value || '').trim() || null;
+            this.step = 'infisso_location';
+            this.renderStep();
+        });
+        document.getElementById('btn-confine-skip')?.addEventListener('click', () => {
+            this.obs.infisso_confine = null;
+            this.step = 'infisso_location';
+            this.renderStep();
         });
         this._bindBack();
     },
@@ -860,7 +977,7 @@ const WizardView = {
             ['Elemento', this.obs.stair_subsection || this.obs.wall || this.obs.balcone_sub || this.obs.element],
             this.obs.has_counterwall ? ['Controparete', 'Si\''] : null,
             this.obs.has_cdp ? ['CDP', 'Si\''] : null,
-            this.obs.infisso_type ? ['Varco', `${this.obs.infisso_type} ${this.obs.infisso_which || ''}`] : null,
+            this.obs.infisso_type ? ['Varco', `${this.obs.infisso_type}${this.obs.infisso_confine ? ' (Vs ' + this.obs.infisso_confine + ')' : ''} ${this.obs.infisso_which || ''}`] : null,
             this.obs.position ? ['Posizione', this.obs.position] : null,
             this.obs.phenomenon ? ['Fenomeno', this.obs.phenomenon] : null,
             this.obs.specifics.length > 0 ? ['Specifiche', this.obs.specifics.join(', ')] : null,
@@ -896,7 +1013,7 @@ const WizardView = {
             this.obs = this._emptyObs();
             const rooms = Events.getActiveRooms(this._sop);
             const room = rooms[this.roomName];
-            const isStair = room && CONFIG.isStairRoom(room);
+            const isStair = room && CONFIG.isStairRoom(this.roomName);
             const isProsp = CONFIG.isProspettoRoom(this.roomName);
             this.step = isStair ? 'stair_subsection' : (isProsp ? 'element_prospetto' : 'element');
             this.renderStep();
@@ -906,6 +1023,32 @@ const WizardView = {
     },
 
     async _saveObs() {
+        // NDR auto-remove: se si aggiunge un difetto su una parete che aveva NDR, rimuovi l'NDR
+        if (this.obs.phenomenon && this.obs.phenomenon !== 'NDR') {
+            const freshSop = await DB.getSopralluogo(this.sopId);
+            const rooms = freshSop ? (Events.getActiveRooms(freshSop)) : {};
+            const room = rooms[this.roomName];
+            if (room && room.observations) {
+                const hasNdr = room.observations.some(obs => {
+                    if (obs.phenomenon !== 'NDR') return false;
+                    // NDR generico su Pareti (senza wall) → rimuovi se stiamo aggiungendo difetto su una parete
+                    if (this.obs.element === 'Pareti' && this.obs.wall && obs.element === 'Pareti' && !obs.wall) return true;
+                    // NDR specifico su stessa parete
+                    if (this.obs.wall && obs.wall === this.obs.wall && obs.element === this.obs.element) return true;
+                    // NDR su stesso elemento (non Pareti)
+                    if (!this.obs.wall && obs.element === this.obs.element && !obs.wall) return true;
+                    return false;
+                });
+                if (hasNdr) {
+                    await Events.dispatch('remove_ndr', this.sopId, {
+                        room_name: this.roomName,
+                        element: this.obs.element,
+                        wall: this.obs.wall || null
+                    });
+                }
+            }
+        }
+
         await Events.dispatch('add_observation', this.sopId, {
             room_name: this.roomName,
             element: this.obs.element,
@@ -927,8 +1070,11 @@ const WizardView = {
             infisso_location: this.obs.infisso_location,
             infisso_wall: this.obs.infisso_wall,
             infisso_which: this.obs.infisso_which,
+            infisso_confine: this.obs.infisso_confine,
             infisso_sub_pos: this.obs.infisso_sub_pos,
-            stair_subsection: this.obs.stair_subsection
+            stair_subsection: this.obs.stair_subsection,
+            prosp_floor: this.obs.prosp_floor,
+            prosp_href: this.obs.prosp_href
         });
         UI.toast('Osservazione salvata');
     },
@@ -936,6 +1082,63 @@ const WizardView = {
     _returnToRoom() {
         App.navigate(`rooms/${this.sopId}/${encodeURIComponent(this.roomName)}`);
     },
+
+    /**
+     * NDR su Pareti generico: chiede quante pareti ha il vano,
+     * salva wall_count, poi fa split_pareti_ndr per creare NDR individuali
+     */
+    _askWallCountForNdr() {
+        const container = document.getElementById('app-content');
+        if (!container) return;
+
+        let html = this._header('NDR Pareti', 'Quante pareti ha il vano?');
+        html += UI.buttonGrid([
+            { value: '3', label: '3 Pareti' },
+            { value: '4', label: '4 Pareti' },
+            { value: '5', label: '5 Pareti' },
+            { value: '6', label: '6 Pareti' }
+        ], { cols: 2 });
+        html += this._backBtn();
+
+        container.innerHTML = html;
+
+        container.querySelectorAll('.btn-choice').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const wallCount = parseInt(btn.dataset.value);
+                // Salva wall_count sul vano
+                await Events.dispatch('set_room_wall_count', this.sopId, {
+                    room_name: this.roomName,
+                    wall_count: wallCount
+                });
+                // Registra NDR generico (verrà subito splittato)
+                await Events.dispatch('set_room_ndr', this.sopId, {
+                    room_name: this.roomName,
+                    element: this.obs.element,
+                    wall: null,
+                    balcone_sub: this.obs.balcone_sub,
+                    has_counterwall: this.obs.has_counterwall,
+                    stair_subsection: this.obs.stair_subsection,
+                    has_cdp: this.obs.has_cdp
+                });
+                // Split in NDR individuali per parete
+                await Events.dispatch('split_pareti_ndr', this.sopId, {
+                    room_name: this.roomName,
+                    wall_count: wallCount
+                });
+                // Salva CDP sul vano se indicato
+                if (this.obs.has_cdp) {
+                    await Events.dispatch('set_room_cdp', this.sopId, {
+                        room_name: this.roomName,
+                        has_cdp: true
+                    });
+                }
+                UI.toast(`NDR registrato su ${wallCount} pareti`);
+                this._returnToRoom();
+            });
+        });
+        this._bindBack();
+    },
+
 
     _getCurrentLabel() {
         if (this.obs.stair_subsection) return this.obs.stair_subsection;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'testimoniale-v14';
+const CACHE_NAME = 'testimoniale-v15';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -20,6 +20,7 @@ const ASSETS_TO_CACHE = [
     './js/views/pertinenze.js',
     './js/views/stairs.js',
     './js/views/prospetti.js',
+    './js/views/marker.js',
     './js/reports/formatters.js',
     './manifest.json'
 ];

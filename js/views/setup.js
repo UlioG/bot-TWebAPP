@@ -59,7 +59,9 @@ const SetupView = {
         } else if (['Cantina', 'Soffitta'].includes(ut)) {
             if (!sop.unit_internal) return 'identificativo';
         } else if (ut === 'Parti Comuni') {
-            if (!sop.unit_internal) return 'identificativo_pc';
+            // PC: skip multi_floor, floor, stair, planimetria
+            // Piani e scale si gestiscono nel menu Scale interno
+            return 'done';
         }
 
         // Multi-floor
@@ -159,44 +161,182 @@ const SetupView = {
         });
     },
 
-    // ========== STEP: TIPO UNITA' ==========
+    // ========== STEP: TIPO UNITA' (menu gerarchico a categorie) ==========
+
+    // Sub-step per navigazione interna al menu tipo unita'
+    _unitTypeSub: null,
 
     _renderUnitType(container, sop) {
+        const sub = this._unitTypeSub;
+        if (sub === 'abitazione') return this._renderUnitTypeSub(container, sop, 'Abitazione', ['Abitazione', 'Ufficio']);
+        if (sub === 'commerciale') return this._renderUnitTypeSub(container, sop, 'Commerciale', ['Negozio', 'Autorimessa'], true);
+        if (sub === 'pertinenze') return this._renderPertTypeChoice(container, sop);
+        // Default: categorie principali
+        this._renderUnitTypeCategories(container, sop);
+    },
+
+    _renderUnitTypeCategories(container, sop) {
         UI.setTitle('Tipo Unita\'');
         let html = this._summaryBar(sop);
-        html += `<div class="wizard-header"><div class="wizard-step">Seleziona il tipo di unita'</div></div>`;
+        html += `<div class="wizard-header"><div class="wizard-step">Seleziona la categoria</div></div>`;
 
-        // Tipi standard
-        const types = CONFIG.UNIT_TYPES;
-        html += UI.buttonGrid(types.map(t => ({ value: t, label: t })));
-
-        // Opzioni speciali
-        html += UI.divider();
-        html += `<div style="padding: 0 16px;">
-            <button class="btn btn-outline" id="btn-scrivi-mano" style="margin-bottom:8px; width:100%;">✏️ Scrivi a Mano</button>
-            <button class="btn btn-outline" id="btn-edificio-complesso" style="width:100%;">🏢 Edificio Complesso</button>
+        html += `<div style="padding: 0 16px; display:flex; flex-direction:column; gap:8px;">
+            <button class="btn btn-primary" id="cat-abitazione" style="font-size:16px;">🏠 Abitazione</button>
+            <button class="btn btn-primary" id="cat-commerciale" style="font-size:16px;">🏪 Commerciale</button>
+            <button class="btn btn-primary" id="cat-pertinenze" style="font-size:16px;">📦 Pertinenze</button>
+            <button class="btn btn-primary" id="cat-pc" style="font-size:16px;">🏢 Parti Comuni</button>
+            <button class="btn btn-primary" id="cat-edificio" style="font-size:16px;">🏗 Edificio Complesso</button>
         </div>`;
 
         container.innerHTML = html;
 
-        // Standard types
+        document.getElementById('cat-abitazione').addEventListener('click', () => {
+            this._unitTypeSub = 'abitazione';
+            this._renderUnitType(container, sop);
+        });
+        document.getElementById('cat-commerciale').addEventListener('click', () => {
+            this._unitTypeSub = 'commerciale';
+            this._renderUnitType(container, sop);
+        });
+        document.getElementById('cat-pertinenze').addEventListener('click', () => {
+            this._unitTypeSub = 'pertinenze';
+            this._renderUnitType(container, sop);
+        });
+        document.getElementById('cat-pc').addEventListener('click', async () => {
+            this._unitTypeSub = null;
+            await Events.dispatch('update_setup', this.sopId, { unit_type: 'Parti Comuni' });
+            this._advance(container);
+        });
+        document.getElementById('cat-edificio').addEventListener('click', async () => {
+            this._unitTypeSub = null;
+            await Events.dispatch('update_setup', this.sopId, { unit_type: 'Edificio Complesso' });
+            this._advance(container);
+        });
+    },
+
+    /**
+     * Sotto-menu per Abitazione o Commerciale
+     */
+    _renderUnitTypeSub(container, sop, categoryLabel, types, showManual = false) {
+        UI.setTitle(categoryLabel);
+        let html = this._summaryBar(sop);
+        html += `<div class="wizard-header"><div class="wizard-step">Seleziona tipo ${categoryLabel.toLowerCase()}</div></div>`;
+
+        html += UI.buttonGrid(types.map(t => ({ value: t, label: t })));
+
+        if (showManual) {
+            html += UI.divider();
+            html += `<div style="padding: 0 16px;">
+                <button class="btn btn-outline" id="btn-scrivi-mano" style="width:100%;">✏️ Scrivi a Mano</button>
+            </div>`;
+        }
+
+        html += `<div style="padding: 8px 16px;">
+            <button class="btn btn-secondary" id="btn-back-cat">🔙 Indietro</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        // Selezione tipo
         container.querySelectorAll('.btn-choice').forEach(btn => {
             btn.addEventListener('click', async () => {
+                this._unitTypeSub = null;
                 await Events.dispatch('update_setup', this.sopId, { unit_type: btn.dataset.value });
                 this._advance(container);
             });
         });
 
         // Scrivi a Mano
-        document.getElementById('btn-scrivi-mano').addEventListener('click', async () => {
-            await Events.dispatch('update_setup', this.sopId, { unit_type: 'Scrivi a Mano' });
+        if (showManual) {
+            document.getElementById('btn-scrivi-mano').addEventListener('click', async () => {
+                this._unitTypeSub = null;
+                await Events.dispatch('update_setup', this.sopId, { unit_type: 'Scrivi a Mano' });
+                this._advance(container);
+            });
+        }
+
+        // Indietro
+        document.getElementById('btn-back-cat').addEventListener('click', () => {
+            this._unitTypeSub = null;
+            this._renderUnitType(container, sop);
+        });
+    },
+
+    /**
+     * Sotto-menu Pertinenze: Singola / Piu'
+     */
+    _renderPertTypeChoice(container, sop) {
+        UI.setTitle('Pertinenze');
+        let html = this._summaryBar(sop);
+        html += UI.wizardHeader('Pertinenze', 'Vuoi analizzare una singola pertinenza o piu\' pertinenze in un unico verbale?');
+
+        html += `<div style="padding: 0 16px; display:flex; flex-direction:column; gap:8px;">
+            <button class="btn btn-primary" id="pert-single" style="font-size:16px;">1️⃣ Singola Unita' Pertinenziale</button>
+            <button class="btn btn-primary" id="pert-multi" style="font-size:16px;">📋 Piu' Unita' Pertinenziali</button>
+            <button class="btn btn-secondary" id="btn-back-cat">🔙 Indietro</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        const selectPertMode = async (multiMode) => {
+            // Mostra scelta tipo pertinenza
+            this._renderPertStandaloneType(container, sop, multiMode);
+        };
+
+        document.getElementById('pert-single').addEventListener('click', () => selectPertMode(false));
+        document.getElementById('pert-multi').addEventListener('click', () => selectPertMode(true));
+        document.getElementById('btn-back-cat').addEventListener('click', () => {
+            this._unitTypeSub = null;
+            this._renderUnitType(container, sop);
+        });
+    },
+
+    /**
+     * Scelta tipo pertinenza standalone (Cantina/Box/Soffitta/Posto auto/Scrivi a Mano)
+     */
+    _renderPertStandaloneType(container, sop, multiMode) {
+        UI.setTitle('Tipo Pertinenza');
+        let html = this._summaryBar(sop);
+        html += `<div class="wizard-header"><div class="wizard-step">Seleziona il tipo di pertinenza</div></div>`;
+
+        const types = CONFIG.PERTINENZA_TYPES || ['Cantina', 'Soffitta', 'Box', 'Posto auto'];
+        html += UI.buttonGrid(types.map(t => ({ value: t, label: t })));
+
+        html += UI.divider();
+        html += `<div style="padding: 0 16px;">
+            <button class="btn btn-outline" id="btn-pert-manual" style="width:100%;">✏️ Scrivi a Mano</button>
+        </div>`;
+        html += `<div style="padding: 8px 16px;">
+            <button class="btn btn-secondary" id="btn-back-pert">🔙 Indietro</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        // Tipo pertinenza selezionato
+        container.querySelectorAll('.btn-choice').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                this._unitTypeSub = null;
+                await Events.dispatch('update_setup', this.sopId, {
+                    unit_type: btn.dataset.value,
+                    pert_multi_mode: multiMode
+                });
+                this._advance(container);
+            });
+        });
+
+        // Scrivi a Mano
+        document.getElementById('btn-pert-manual').addEventListener('click', async () => {
+            this._unitTypeSub = null;
+            await Events.dispatch('update_setup', this.sopId, {
+                unit_type: 'Scrivi a Mano',
+                pert_multi_mode: multiMode
+            });
             this._advance(container);
         });
 
-        // Edificio Complesso
-        document.getElementById('btn-edificio-complesso').addEventListener('click', async () => {
-            await Events.dispatch('update_setup', this.sopId, { unit_type: 'Edificio Complesso' });
-            this._advance(container);
+        // Indietro
+        document.getElementById('btn-back-pert').addEventListener('click', () => {
+            this._renderPertTypeChoice(container, sop);
         });
     },
 
@@ -519,6 +659,18 @@ const SetupView = {
         const sop = await DB.getSopralluogo(this.sopId);
         this._step = this._detectStep(sop);
         if (this._step === 'done') {
+            // PC: imposta default per campi saltati
+            if (sop.unit_type === 'Parti Comuni') {
+                const defaults = {};
+                if (!sop.unit_name || sop.unit_name !== 'Parti Comuni') defaults.unit_name = 'Parti Comuni';
+                if (sop.is_multi_floor === undefined || sop.is_multi_floor === null) defaults.is_multi_floor = false;
+                if (!sop.floor) defaults.floor = '-';
+                if (!sop.stair) defaults.stair = '-';
+                if (!sop._planimetria_done) defaults._planimetria_done = true;
+                if (Object.keys(defaults).length > 0) {
+                    await Events.dispatch('update_setup', this.sopId, defaults);
+                }
+            }
             App.navigate(`anagrafica/${this.sopId}`);
         } else {
             this._renderStep(container, sop);
@@ -544,6 +696,8 @@ const SetupView = {
 
     _isStepApplicable(step, sop) {
         const ut = sop.unit_type;
+        // PC: salta multi_floor, select_floors, floor, stair, planimetria, identificativo_pc
+        if (ut === 'Parti Comuni' && ['identificativo_pc', 'multi_floor', 'select_floors', 'floor', 'stair', 'planimetria'].includes(step)) return false;
         if (step === 'manual_desc') return ut === 'Scrivi a Mano' || ut === 'Edificio Complesso';
         if (step === 'subalterno') return ['Abitazione', 'Ufficio', 'Negozio', 'Garage', 'Autorimessa', 'Box', 'Posto auto'].includes(ut);
         if (step === 'interno') return ['Abitazione', 'Ufficio'].includes(ut);
@@ -583,7 +737,7 @@ const SetupView = {
 
         const updated = await DB.getSopralluogo(this.sopId);
         this._step = prevStep;
-        this._renderStep(document.getElementById('content'), updated);
+        this._renderStep(document.getElementById('app-content'), updated);
     },
 
     /**

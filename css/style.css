@@ -489,7 +489,7 @@ textarea.form-input {
 /* ===== PHOTO ===== */
 .photo-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 4px;
     padding: 8px 16px;
 }
@@ -779,7 +779,7 @@ textarea.form-input {
 /* ===== PC CATEGORY BUTTONS ===== */
 .pc-cat-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
     padding: 12px 16px;
 }

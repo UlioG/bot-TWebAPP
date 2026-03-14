@@ -16,8 +16,12 @@ function formatObservationText(obs, options = {}) {
     // Determina label elemento
     let elemLabel = '';
     if (obs.infisso_type) {
-        // Elemento/Varco: tipo + which + location + sub_pos
+        // Elemento/Varco: tipo + confine + which + location + sub_pos
         const parts = [obs.infisso_type];
+        // Confine (Vs vano) per porte interne — allineato a reports.py
+        if (obs.infisso_confine && obs.infisso_type.toLowerCase().includes('porta interna')) {
+            parts.push(`(Vs ${obs.infisso_confine})`);
+        }
         if (obs.infisso_which) parts.push(obs.infisso_which);
         if (obs.infisso_wall || obs.infisso_location) {
             parts.push(obs.infisso_wall || obs.infisso_location);
@@ -47,9 +51,9 @@ function formatObservationText(obs, options = {}) {
         elemLabel += ' con controparete';
     }
 
-    // Carta da parati (CDP)
+    // CDP (Carta Da Parati) — allineato a reports.py
     if (obs.has_cdp) {
-        elemLabel += ' carta da parati';
+        elemLabel += obs.has_counterwall ? ', CDP' : ' CDP';
     }
 
     // NDR
@@ -117,6 +121,13 @@ function formatObservationText(obs, options = {}) {
     }
 
     let text = parts.join(' ');
+
+    // Applica contrazioni clean_text_helper (allineato a reports.py)
+    if (typeof CONFIG !== 'undefined' && CONFIG.cleanTextHelper) {
+        // Applica contrazioni solo a specifiche/attributi/fenomeno (non all'elemento)
+        text = CONFIG.cleanTextHelper(text);
+    }
+
     // Capitalize first letter
     text = text.charAt(0).toUpperCase() + text.slice(1);
 

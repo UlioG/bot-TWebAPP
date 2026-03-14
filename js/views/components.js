@@ -182,6 +182,10 @@ const UI = {
                     <span class="pc-cat-icon">🏛</span>
                     <span class="pc-cat-label">Prospetti</span>
                 </button>
+                <button class="pc-cat-btn" data-cat="pertinenze">
+                    <span class="pc-cat-icon">📦</span>
+                    <span class="pc-cat-label">Pertinenze</span>
+                </button>
             </div>
         `;
     },
@@ -441,7 +445,7 @@ const UI = {
         input.focus();
         document.getElementById('modal-confirm').addEventListener('click', () => {
             const val = input.value.trim();
-            if (val) {
+            if (val || options.allowEmpty) {
                 UI.hideModal();
                 onConfirm(val);
             }
@@ -483,13 +487,20 @@ const UI = {
         const esc = UI._escapeHtml;
         const completed = pert.completed ? '✅' : '⬜';
         const roomCount = pert.rooms ? Object.keys(pert.rooms).length : 0;
+        // Build display name: "Cantina - Sub. 12 - N. 3 (Piano Terra)"
+        const nameParts = [pert.type || 'Pertinenza'];
+        if (pert.sub) nameParts.push(`Sub. ${pert.sub}`);
+        if (pert.numero) nameParts.push(`N. ${pert.numero}`);
+        let displayName = nameParts.join(' - ');
+        if (pert.piano) displayName += ` (${pert.piano})`;
         const subtitle = roomCount > 0 ? `${roomCount} vani` : 'Nessun vano';
+        const subtitleExtra = pert.indirizzo ? ` | ${pert.indirizzo}` : '';
         return `
             <div class="cell pert-item" data-pert-index="${index}">
                 <div class="cell-icon">${completed}</div>
                 <div class="cell-body">
-                    <div class="cell-title">${esc(pert.type || 'Pertinenza')}</div>
-                    <div class="cell-subtitle">${esc(subtitle)}</div>
+                    <div class="cell-title">${esc(displayName)}</div>
+                    <div class="cell-subtitle">${esc(subtitle + subtitleExtra)}</div>
                 </div>
                 <span class="cell-chevron">&#8250;</span>
             </div>
@@ -548,7 +559,7 @@ const UI = {
      * Render HTML nel content area principale
      */
     render(html) {
-        const content = document.getElementById('content');
+        const content = document.getElementById('app-content');
         if (content) content.innerHTML = html;
     },
 
@@ -556,7 +567,7 @@ const UI = {
      * Append HTML al content area
      */
     append(html) {
-        const content = document.getElementById('content');
+        const content = document.getElementById('app-content');
         if (content) content.insertAdjacentHTML('beforeend', html);
     }
 };

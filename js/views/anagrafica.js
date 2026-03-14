@@ -145,9 +145,24 @@ const AnagraficaView = {
                     App.navigate('home');
                 } else if (phase === 2) {
                     await self._saveAllFields(sop);
+                    // Finalizza fase 1 se non ancora fatto
+                    const freshSop = await DB.getSopralluogo(self.sopId);
+                    if (!freshSop || freshSop.phase < 2) {
+                        if (typeof SetupView !== 'undefined' && SetupView._buildUnitName) {
+                            await SetupView._buildUnitName(freshSop);
+                        }
+                        await Events.dispatch('complete_phase', self.sopId, { phase: 2 });
+                    }
                     App.navigate(`rooms/${self.sopId}`);
                 } else if (phase === 3) {
                     await self._saveAllFields(sop);
+                    const freshSop3 = await DB.getSopralluogo(self.sopId);
+                    if (!freshSop3 || freshSop3.phase < 2) {
+                        if (typeof SetupView !== 'undefined' && SetupView._buildUnitName) {
+                            await SetupView._buildUnitName(freshSop3);
+                        }
+                        await Events.dispatch('complete_phase', self.sopId, { phase: 2 });
+                    }
                     App.navigate(`review/${self.sopId}`);
                 }
                 // phase === 1: gia' qui (anagrafica), non fare nulla

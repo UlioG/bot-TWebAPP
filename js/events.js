@@ -159,6 +159,15 @@ const Events = {
                 }
                 break;
 
+            case 'upload_floor_planimetria':
+                if (!sop.floors_with_planimetria) sop.floors_with_planimetria = [];
+                if (!sop.floors_with_planimetria.includes(p.floor)) {
+                    sop.floors_with_planimetria.push(p.floor);
+                }
+                if (!sop.planimetria_photos) sop.planimetria_photos = [];
+                sop.planimetria_photos.push(p.photo_id);
+                break;
+
             // ========== FASE ==========
 
             case 'complete_phase':
@@ -261,11 +270,15 @@ const Events = {
                         infisso_location: p.infisso_location || null,
                         infisso_wall: p.infisso_wall || null,
                         infisso_which: p.infisso_which || null,
+                        infisso_confine: p.infisso_confine || null,
                         infisso_sub_pos: p.infisso_sub_pos || null,
                         // Balcone
                         balcone_sub: p.balcone_sub || null,
                         // Scala
                         stair_subsection: p.stair_subsection || null,
+                        // Prospetti
+                        prosp_floor: p.prosp_floor || null,
+                        prosp_href: p.prosp_href || null,
                         // CDP
                         has_cdp: p.has_cdp || false,
                         // Timestamp
@@ -596,6 +609,10 @@ const Events = {
                 if (!sop.pertinenze) sop.pertinenze = [];
                 sop.pertinenze.push({
                     type: p.type,
+                    sub: p.sub || '',
+                    numero: p.numero || '',
+                    indirizzo: p.indirizzo || '',
+                    piano: p.piano || '',
                     floor: p.floor || sop.floor,
                     rooms: {},
                     planimetria_photos: [],
@@ -690,6 +707,11 @@ const Events = {
                 sop.completed = true;
                 sop.completed_at = event.timestamp;
                 break;
+
+            case 'reopen_sopralluogo':
+                sop.completed = false;
+                sop.phase = 2;
+                break;
         }
 
         sop.updated_at = event.timestamp;
@@ -707,7 +729,7 @@ const Events = {
 
         if (p.element === 'Pareti' && p.wall) {
             surface = p.wall;
-        } else if (['Soffitto', 'Pavimento'].includes(p.element)) {
+        } else if (['Soffitto', 'Pavimento', 'Sotto balcone superiore'].includes(p.element)) {
             surface = p.element;
         }
 
