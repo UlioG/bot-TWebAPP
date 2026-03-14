@@ -847,9 +847,12 @@ const Sync = {
             t.element = t.wall;
         }
 
-        // infisso_location → infisso_loc (reports.py legge infisso_loc)
-        if (t.infisso_location && !t.infisso_loc) {
-            t.infisso_loc = t.infisso_location;
+        // infisso_which → infisso_loc (reports.py legge infisso_loc come identificativo varco)
+        // Nel bot: infisso_loc = "1 da SX", "Centrale", etc. (identificativo)
+        // Nella webapp: infisso_which ha lo stesso ruolo
+        // NON mappare infisso_location → infisso_loc (sono entrambi il nome parete, causa duplicazione)
+        if (t.infisso_which && !t.infisso_loc) {
+            t.infisso_loc = t.infisso_which;
         }
 
         // parz_ingombra → inserisce nelle notes
