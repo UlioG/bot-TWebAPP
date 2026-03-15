@@ -9,7 +9,7 @@
  *   Cantina/Soffitta: identificativo
  *   Parti Comuni: identificativo
  *   Scrivi a Mano: descrizione libera -> (no sub/interno, diretta a piano)
- *   Edificio Complesso: descrizione -> prefisso auto "Edificio Complesso: {desc}"
+ *   Edificio Complesso: descrizione -> sub -> "Edificio Complesso: {desc} - Sub. {sub}"
  */
 const SetupView = {
     sopId: null,
@@ -47,8 +47,11 @@ const SetupView = {
 
         // Dettagli per tipo
         const ut = sop.unit_type;
-        if (ut === 'Scrivi a Mano' || ut === 'Edificio Complesso') {
+        if (ut === 'Scrivi a Mano') {
             if (!sop.manual_unit_type) return 'manual_desc';
+        } else if (ut === 'Edificio Complesso') {
+            if (!sop.manual_unit_type) return 'manual_desc';
+            if (!sop.subalterno) return 'subalterno';
         } else if (['Abitazione', 'Ufficio'].includes(ut)) {
             if (!sop.subalterno) return 'subalterno';
             if (!sop.unit_internal) return 'interno';
@@ -730,7 +733,7 @@ const SetupView = {
         // PC: salta multi_floor, select_floors, floor, stair, planimetria, identificativo_pc
         if (ut === 'Parti Comuni' && ['identificativo_pc', 'multi_floor', 'select_floors', 'floor', 'stair', 'planimetria'].includes(step)) return false;
         if (step === 'manual_desc') return ut === 'Scrivi a Mano' || ut === 'Edificio Complesso';
-        if (step === 'subalterno') return ['Abitazione', 'Ufficio', 'Negozio', 'Garage', 'Autorimessa', 'Box', 'Posto auto'].includes(ut);
+        if (step === 'subalterno') return ['Abitazione', 'Ufficio', 'Negozio', 'Garage', 'Autorimessa', 'Box', 'Posto auto', 'Edificio Complesso'].includes(ut);
         if (step === 'interno') return ['Abitazione', 'Ufficio'].includes(ut);
         if (step === 'indirizzo_civico') return ['Negozio', 'Garage', 'Autorimessa', 'Box', 'Posto auto'].includes(ut);
         if (step === 'identificativo') return ['Cantina', 'Soffitta'].includes(ut);
@@ -777,8 +780,11 @@ const SetupView = {
         const ut = sop.unit_type;
         let unitName = '';
 
-        if (ut === 'Scrivi a Mano' || ut === 'Edificio Complesso') {
+        if (ut === 'Scrivi a Mano') {
             unitName = sop.manual_unit_type || ut;
+        } else if (ut === 'Edificio Complesso') {
+            const desc = sop.manual_unit_type || ut;
+            unitName = sop.subalterno ? `${desc} - Sub. ${sop.subalterno}` : desc;
         } else if (['Abitazione', 'Ufficio', 'Negozio', 'Garage', 'Autorimessa', 'Box', 'Posto auto'].includes(ut)) {
             const parts = [ut];
             if (sop.subalterno) parts.push(`Sub. ${sop.subalterno}`);

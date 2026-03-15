@@ -88,7 +88,7 @@ const Events = {
                     building_address: p.building_address || '',
                     floor: p.floor || '',
                     building_floors: p.building_floors || [],
-                    is_multi_floor: p.is_multi_floor || false,
+                    is_multi_floor: p.is_multi_floor != null ? p.is_multi_floor : null,
                     stair: p.stair || '',
                     unit_type: p.unit_type || '',
                     manual_unit_type: p.manual_unit_type || null,
