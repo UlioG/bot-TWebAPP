@@ -1,7 +1,7 @@
 /**
  * setup.js - Fase 1: Setup fabbricato e unita'
  * Flusso NUOVO (allineato a bot 2026-03-05):
- * Codice -> Indirizzo -> Tipo Unita' -> [dettagli tipo] -> Multi-piano -> Piano -> Scala -> Planimetria
+ * Codice+Indirizzo -> Tipo Unita' -> [dettagli tipo] -> Multi-piano -> Piano -> Scala -> Planimetria
  *
  * Tipo Unita':
  *   Abitazione/Ufficio: sub -> interno
@@ -15,7 +15,7 @@ const SetupView = {
     sopId: null,
 
     // Step corrente nella navigazione
-    _step: 'building_code',
+    _step: 'building_info',
 
     async render(container, params) {
         this.sopId = params[0];
@@ -42,8 +42,7 @@ const SetupView = {
      * Rileva lo step corrente in base ai dati presenti
      */
     _detectStep(sop) {
-        if (!sop.building_code) return 'building_code';
-        if (!sop.building_address) return 'building_address';
+        if (!sop.building_code || !sop.building_address) return 'building_info';
         if (!sop.unit_type) return 'unit_type';
 
         // Dettagli per tipo
@@ -93,14 +92,7 @@ const SetupView = {
         });
 
         switch (step) {
-            case 'building_code': return this._renderTextStep(container, sop, {
-                key: 'building_code', label: 'Codice Fabbricato', placeholder: 'Es. 100C, 3B',
-                transform: v => v.toUpperCase().trim()
-            });
-            case 'building_address': return this._renderTextStep(container, sop, {
-                key: 'building_address', label: 'Indirizzo Fabbricato', placeholder: 'Es. Via Roma, 10',
-                transform: v => v.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-            });
+            case 'building_info': return this._renderBuildingInfo(container, sop);
             case 'unit_type': return this._renderUnitType(container, sop);
             case 'manual_desc': return this._renderManualDesc(container, sop);
             case 'subalterno': return this._renderTextStep(container, sop, {
@@ -157,6 +149,45 @@ const SetupView = {
             if (!value) { UI.toast('Inserisci un valore'); return; }
             if (opts.transform) value = opts.transform(value);
             await Events.dispatch('update_setup', this.sopId, { [opts.key]: value });
+            this._advance(container);
+        });
+    },
+
+    // ========== STEP: CODICE + INDIRIZZO (schermata unica) ==========
+
+    _renderBuildingInfo(container, sop) {
+        UI.setTitle('Dati Fabbricato');
+        let html = this._summaryBar(sop);
+        html += UI.formInput({
+            label: 'Codice Fabbricato',
+            placeholder: 'Es. 100C, 3B',
+            id: 'setup-code',
+            value: sop.building_code || ''
+        });
+        html += UI.formInput({
+            label: 'Indirizzo Fabbricato',
+            placeholder: 'Es. Via Roma, 10',
+            id: 'setup-address',
+            value: sop.building_address || ''
+        });
+        html += `<div style="padding: 0 16px; margin-top: 8px;">
+            <button class="btn btn-primary" id="setup-next">Avanti</button>
+        </div>`;
+
+        container.innerHTML = html;
+
+        const inputCode = document.getElementById('setup-code');
+        const inputAddr = document.getElementById('setup-address');
+        const btn = document.getElementById('setup-next');
+        setTimeout(() => inputCode.focus(), 100);
+
+        inputAddr.addEventListener('keydown', e => { if (e.key === 'Enter') btn.click(); });
+        btn.addEventListener('click', async () => {
+            const code = inputCode.value.trim().toUpperCase();
+            const addr = inputAddr.value.trim().replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+            if (!code) { UI.toast('Inserisci il codice fabbricato'); inputCode.focus(); return; }
+            if (!addr) { UI.toast('Inserisci l\'indirizzo'); inputAddr.focus(); return; }
+            await Events.dispatch('update_setup', this.sopId, { building_code: code, building_address: addr });
             this._advance(container);
         });
     },
@@ -681,7 +712,7 @@ const SetupView = {
      * Calcola step precedente
      */
     _getPrevStep(sop) {
-        const order = ['building_code', 'building_address', 'unit_type', 'manual_desc',
+        const order = ['building_info', 'unit_type', 'manual_desc',
             'subalterno', 'interno', 'indirizzo_civico', 'identificativo', 'identificativo_pc',
             'multi_floor', 'select_floors', 'floor', 'stair', 'planimetria'];
         const idx = order.indexOf(this._step);
@@ -714,8 +745,7 @@ const SetupView = {
     async _undoStep(prevStep, sop) {
         // Clear current step data
         const clearMap = {
-            building_code: { building_code: '' },
-            building_address: { building_address: '' },
+            building_info: { building_code: '', building_address: '' },
             unit_type: { unit_type: '', manual_unit_type: null, subalterno: '', unit_internal: '' },
             manual_desc: { manual_unit_type: null },
             subalterno: { subalterno: '' },
