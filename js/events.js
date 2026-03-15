@@ -236,6 +236,12 @@ const Events = {
                 }
                 break;
 
+            case 'set_custom_walls':
+                if (sop.rooms[p.room_name]) {
+                    sop.rooms[p.room_name].custom_walls = p.custom_walls || [];
+                }
+                break;
+
             case 'save_markers':
                 if (sop.rooms[p.room_name]) {
                     sop.rooms[p.room_name].marker_coords = p.markers || {};

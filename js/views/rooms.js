@@ -691,8 +691,15 @@ const RoomsView = {
 
         // Bottoni azioni
         const isPC = CONFIG.isPartiComuni(sop.unit_name || sop.unit_type);
+        // NDR check: se intero vano ha gia' NDR mostra ✅
+        const hasNdrIntero = (room.observations || []).some(obs =>
+            obs.element === 'Intero Vano' && obs.phenomenon === 'NDR'
+        );
+        const ndrLabel = hasNdrIntero ? '🟢 NDR ✅' : '🟢 NDR';
+
         html += `<div style="padding: 16px; display: flex; flex-direction: column; gap: 8px;">
             <button class="btn btn-primary" id="btn-add-obs">Aggiungi Osservazione</button>
+            <button class="btn btn-secondary" id="btn-ndr-full" style="background: #2e7d32; color: white;">${ndrLabel}</button>
             <button class="btn btn-outline" id="btn-open-markers" style="display:none;">📍 Posiziona Marker</button>
             <button class="btn btn-outline" id="btn-manual-text">✏️ Testo Manuale</button>`;
 
@@ -881,6 +888,17 @@ const RoomsView = {
         };
         document.getElementById('btn-pano-camera')?.addEventListener('click', async () => savePano(await Photos.takePhoto()));
         document.getElementById('btn-pano-gallery')?.addEventListener('click', async () => savePano(await Photos.fromGallery()));
+
+        // NDR intero vano
+        document.getElementById('btn-ndr-full')?.addEventListener('click', async () => {
+            await Events.dispatch('set_room_ndr', this.sopId, {
+                room_name: roomName,
+                element: 'Intero Vano'
+            });
+            UI.toast('🟢 NDR registrato per l\'intero vano');
+            const updated = await DB.getSopralluogo(this.sopId);
+            this.renderRoomCard(container, updated, roomName);
+        });
 
         // Add observation
         document.getElementById('btn-add-obs')?.addEventListener('click', () => {

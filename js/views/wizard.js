@@ -84,6 +84,7 @@ const WizardView = {
             case 'cdp': return this._renderCDP(container);
             case 'balcone_sub': return this._renderBalconeSub(container);
             case 'pre_check': return this._renderPreCheck(container);
+            case 'parziale_choice': return this._renderParzialeChoice(container);
             case 'infisso_type': return this._renderInfissoType(container);
             case 'infisso_confine': return this._renderInfissoConfine(container);
             case 'infisso_location': return this._renderInfissoLocation(container);
@@ -191,12 +192,12 @@ const WizardView = {
 
         let html = this._header(this.roomName, 'Seleziona la sotto-sezione');
         html += UI.buttonGrid(subsections.map(s => ({ value: s, label: s })), { cols: 1 });
+        html += `<div style="padding: 8px 16px;"><button class="btn btn-outline" id="btn-ss-manual">✏️ Inserisci Manualmente</button></div>`;
         container.innerHTML = html;
 
         container.querySelectorAll('.btn-choice').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.obs.stair_subsection = btn.dataset.value;
-                // Map to element based on subsection
                 const elements = CONFIG.getStairElements(this.obs.stair_subsection);
                 if (elements.length === 1) {
                     this.obs.element = elements[0];
@@ -204,6 +205,16 @@ const WizardView = {
                 } else {
                     this.step = 'element';
                 }
+                this.renderStep();
+            });
+        });
+
+        // Scrivi a mano sotto-sezione
+        document.getElementById('btn-ss-manual')?.addEventListener('click', () => {
+            UI.promptInput('Sotto-sezione', 'Es. Pianerottolo intermedio, Rampa 3', (val) => {
+                if (!val) return;
+                this.obs.stair_subsection = val;
+                this.step = 'element';
                 this.renderStep();
             });
         });
@@ -288,6 +299,7 @@ const WizardView = {
 
         let html = this._header(this.roomName, 'Seleziona elemento');
         html += UI.buttonGrid(elements.map(e => ({ value: e, label: e })));
+        html += `<div style="padding: 8px 16px;"><button class="btn btn-outline" id="btn-el-manual">✏️ Inserisci Manualmente</button></div>`;
         html += this._backBtn();
         container.innerHTML = html;
 
@@ -303,6 +315,16 @@ const WizardView = {
                 this.renderStep();
             });
         });
+
+        // Scrivi a mano elemento
+        document.getElementById('btn-el-manual')?.addEventListener('click', () => {
+            UI.promptInput('Elemento manuale', 'Es. Cornicione, Gronda, Architrave', (val) => {
+                if (!val) return;
+                this.obs.element = val;
+                this.step = 'pre_check';
+                this.renderStep();
+            });
+        });
         this._bindBack();
     },
 
@@ -313,8 +335,25 @@ const WizardView = {
         const isProsp = CONFIG.isProspettoRoom(this.roomName);
         const labels = isProsp ? CONFIG.PROSPETTO_DEFAULT_LABELS : CONFIG.WALL_LABELS;
 
+        // Custom walls dal sopralluogo
+        const rooms = this._sop ? Events.getActiveRooms(this._sop) : {};
+        const room = rooms[this.roomName] || {};
+        const customWalls = room.custom_walls || [];
+
         let html = this._header('Pareti', 'Seleziona la parete');
-        html += UI.buttonGrid(labels);
+
+        // Griglia pareti standard + custom
+        const allLabels = [...labels];
+        for (const cw of customWalls) {
+            if (!allLabels.includes(cw)) allLabels.push(cw);
+        }
+        html += UI.buttonGrid(allLabels);
+
+        // Scrivi a Mano + NDR Tutte le Pareti
+        html += `<div style="padding: 8px 16px; display:flex; flex-direction:column; gap:8px;">
+            <button class="btn btn-outline" id="btn-wall-manual">✏️ Inserisci Manualmente</button>
+            <button class="btn btn-secondary" id="btn-wall-ndr-all" style="background: #2e7d32; color: white;">🟢 NDR Tutte le Pareti</button>
+        </div>`;
         html += this._backBtn();
         container.innerHTML = html;
 
@@ -325,6 +364,30 @@ const WizardView = {
                 this.renderStep();
             });
         });
+
+        // Scrivi a Mano parete
+        document.getElementById('btn-wall-manual')?.addEventListener('click', () => {
+            UI.promptInput('Parete personalizzata', 'Es. Parete E, Parete vano ascensore', async (val) => {
+                if (!val) return;
+                // Salva come custom wall nel vano
+                if (!customWalls.includes(val)) {
+                    customWalls.push(val);
+                    await Events.dispatch('set_custom_walls', this.sopId, {
+                        room_name: this.roomName,
+                        custom_walls: customWalls
+                    });
+                }
+                this.obs.wall = val;
+                this.step = 'counterwall';
+                this.renderStep();
+            });
+        });
+
+        // NDR Tutte le Pareti
+        document.getElementById('btn-wall-ndr-all')?.addEventListener('click', () => {
+            this._askWallCountForNdr();
+        });
+
         this._bindBack();
     },
 
@@ -452,7 +515,7 @@ const WizardView = {
                 } else if (val === 'PARZIALE') {
                     this.obs.parz_ingombra = true;
                     this.obs.notes = 'Parzialmente Ingombra';
-                    this.step = this._afterPreCheckStep();
+                    this.step = 'parziale_choice';
                     this.renderStep();
                 } else {
                     // PROCEDI
@@ -461,6 +524,46 @@ const WizardView = {
                 }
             });
         });
+        this._bindBack();
+    },
+
+    // ========== PARZIALE CHOICE (NDR o difetto) ==========
+
+    _renderParzialeChoice(container) {
+        const label = this._getCurrentLabel();
+        UI.setTitle('Parzialmente Ingombra');
+        let html = this._header(label, 'Parzialmente ingombra — cosa vuoi fare?');
+        html += `<div style="padding: 0 16px; display:flex; flex-direction:column; gap:12px;">
+            <button class="btn btn-secondary" id="btn-parz-ndr" style="background: #2e7d32; color: white; font-size:15px;">
+                🟢 NDR — Nulla da rilevare
+            </button>
+            <button class="btn btn-primary" id="btn-parz-difetto" style="font-size:15px;">
+                🔍 Ho trovato un difetto — Procedi
+            </button>
+        </div>`;
+        html += this._backBtn();
+        container.innerHTML = html;
+
+        // NDR diretto
+        document.getElementById('btn-parz-ndr')?.addEventListener('click', async () => {
+            await Events.dispatch('set_room_ndr', this.sopId, {
+                room_name: this.roomName, element: this.obs.element,
+                wall: this.obs.wall, balcone_sub: this.obs.balcone_sub,
+                has_counterwall: this.obs.has_counterwall,
+                stair_subsection: this.obs.stair_subsection,
+                has_cdp: this.obs.has_cdp,
+                parz_ingombra: true
+            });
+            UI.toast('🟢 Parzialmente ingombra NDR registrato');
+            this._returnToRoom();
+        });
+
+        // Difetto → continua wizard
+        document.getElementById('btn-parz-difetto')?.addEventListener('click', () => {
+            this.step = this._afterPreCheckStep();
+            this.renderStep();
+        });
+
         this._bindBack();
     },
 
@@ -761,6 +864,8 @@ const WizardView = {
         if (this.obs.parz_ingombra || this.obs.non_visibile) {
             html += `<div style="padding:8px 16px;"><button class="menu-chip" data-value="NDR">🟢 NDR</button></div>`;
         }
+        // Scrivi a Mano
+        html += `<div style="padding:8px 16px;"><button class="btn btn-outline" id="btn-phen-manual">✏️ SCRIVI A MANO</button></div>`;
         html += this._backBtn();
         container.innerHTML = html;
 
@@ -770,6 +875,16 @@ const WizardView = {
                 this.step = this.obs.phenomenon === 'NDR' ? 'notes' : 'specifics';
                 this.renderStep();
             });
+        });
+
+        // Scrivi a Mano fenomeno
+        document.getElementById('btn-phen-manual')?.addEventListener('click', () => {
+            UI.promptInput('Scrivi a Mano', 'Scrivi la descrizione completa del difetto', (val) => {
+                if (!val) return;
+                this.obs.phenomenon = val;
+                this.step = 'notes';
+                this.renderStep();
+            }, { multiline: true });
         });
         this._bindBack();
     },
@@ -833,6 +948,7 @@ const WizardView = {
         html += '</div>';
 
         html += `<div style="padding:8px 16px; display:flex; flex-direction:column; gap:8px;">
+            <button class="btn btn-outline" id="btn-det-manual">✏️ AGGIUNGI MANUALE</button>
             <button class="btn btn-primary" id="btn-proceed">Procedi</button>
             <button class="btn btn-secondary" id="btn-skip">Salta</button>
         </div>`;
@@ -845,6 +961,15 @@ const WizardView = {
                 const idx = this.obs.attributes.indexOf(val);
                 if (idx >= 0) this.obs.attributes.splice(idx, 1);
                 else this.obs.attributes.push(val);
+                this.renderStep();
+            });
+        });
+
+        // Aggiungi manuale
+        document.getElementById('btn-det-manual')?.addEventListener('click', () => {
+            UI.promptInput('Attributo manuale', 'Es. larghezza 3mm, profondita\' 2cm', (val) => {
+                if (!val) return;
+                this.obs.attributes.push(val);
                 this.renderStep();
             });
         });
