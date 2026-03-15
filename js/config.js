@@ -70,7 +70,7 @@ const CONFIG = {
     STAIRS: ['Scala A', 'Scala B', 'Scala C', 'Scala D', 'Scala Unica'],
 
     // ========== ELEMENTI ISPEZIONABILI ==========
-    ELEMENTS: ['Pareti', 'Soffitto', 'Pavimento', 'Elemento/Varco', 'Balcone'],
+    ELEMENTS: ['Pareti', 'Soffitto', 'Pavimento', 'Elemento/Varco'],
 
     // Elementi per vano con destinazione BALCONE (no Soffitto, Sotto balcone al posto di Soffitto)
     ELEMENTS_BALCONE: ['Pareti', 'Sotto balcone superiore', 'Pavimento', 'Elemento/Varco'],

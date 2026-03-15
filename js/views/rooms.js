@@ -444,7 +444,12 @@ const RoomsView = {
             const roomName = document.getElementById('modal-room-name').value.trim();
             if (!roomNum || !roomName) { UI.toast('Compila i campi'); return; }
 
-            const fullName = `${roomNum} - ${roomName}`;
+            let fullName = `${roomNum} - ${roomName}`;
+            // Multi-piano: aggiungi suffisso piano (come bot.py righe 2397-2400)
+            if (sop.is_multi_floor && !Events.isInPertinenza(sop)) {
+                const curFloor = sop.current_floor_tab || sop.floor;
+                if (curFloor) fullName = `${fullName} (${curFloor})`;
+            }
             if (rooms[fullName]) { UI.toast('Vano gia\' esistente'); return; }
 
             const inPert = Events.isInPertinenza(sop);
