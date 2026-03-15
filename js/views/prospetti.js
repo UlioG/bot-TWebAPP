@@ -350,8 +350,7 @@ const ProspettiView = {
         // Azioni
         html += `<div style="padding: 16px; display:flex; flex-direction:column; gap:8px;">
             <button class="btn btn-primary" id="btn-add-obs" style="width:100%;">+ Aggiungi Osservazione</button>
-            <button class="btn btn-secondary" id="btn-ndr" style="width:100%; background: #2e7d32; color: white;">🟢 NDR (Pareti)</button>
-            <button class="btn btn-secondary" id="btn-ndr-varco" style="width:100%; background: #2e7d32; color: white;">🟢 NDR (Elemento/Varco)</button>
+            <button class="btn btn-secondary" id="btn-ndr" style="width:100%; background: #2e7d32; color: white;">🟢 NDR</button>
             <button class="btn btn-secondary" id="btn-status" style="width:100%;">Modifica Stato</button>
             <button class="btn btn-secondary" id="btn-back-list" style="width:100%;">← Lista Prospetti</button>
         </div>`;
@@ -381,23 +380,13 @@ const ProspettiView = {
             this._renderView(container, sop);
         });
 
-        // NDR Pareti
+        // NDR intero prospetto (come bot: element = 'Intero Vano')
         document.getElementById('btn-ndr').addEventListener('click', async () => {
             await Events.dispatch('set_room_ndr', this.sopId, {
                 room_name: prosp,
-                element: 'Pareti'
+                element: 'Intero Vano'
             });
-            UI.toast('NDR Pareti salvato');
-            this._renderView(container);
-        });
-
-        // NDR Elemento/Varco
-        document.getElementById('btn-ndr-varco').addEventListener('click', async () => {
-            await Events.dispatch('set_room_ndr', this.sopId, {
-                room_name: prosp,
-                element: 'Elemento/Varco'
-            });
-            UI.toast('NDR Elemento/Varco salvato');
+            UI.toast('🟢 NDR salvato');
             this._renderView(container);
         });
 

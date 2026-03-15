@@ -161,6 +161,8 @@ const WizardView = {
 
     _preCheckBackTarget() {
         const elem = this.obs.element;
+        const isProsp = CONFIG.isProspettoRoom(this.roomName);
+        if (elem === 'Pareti' && isProsp) return 'element_prospetto';
         if (elem === 'Pareti') return this.obs.has_cdp !== null ? 'cdp' : 'counterwall';
         if (elem === 'Balcone') {
             return this.obs.balcone_sub && this.obs.balcone_sub.startsWith('Parete') ? 'counterwall' : 'balcone_sub';
@@ -272,8 +274,10 @@ const WizardView = {
                 if (this.obs.element === 'Elemento/Varco') {
                     this.step = 'infisso_type';
                 } else {
-                    // Pareti prospetto -> seleziona facciata (Parete A/B/C/D)
-                    this.step = 'wall';
+                    // Prospetti: il prospetto È la parete (bot riga 2541)
+                    // Skip wall/counterwall/CDP — auto-set wall = nome prospetto
+                    this.obs.wall = this.roomName; // es. "Prospetto B"
+                    this.step = 'pre_check';
                 }
                 this.renderStep();
             });
