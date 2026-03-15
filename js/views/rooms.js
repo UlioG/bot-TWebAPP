@@ -563,6 +563,9 @@ const RoomsView = {
         `;
         html += UI.buttonGrid(CONFIG.ROOM_TYPES_PC, { cols: 3 });
         html += `</div>
+            <div style="padding: 0 16px;">
+                ${UI.formInput({ label: 'Oppure scrivi a mano', id: 'modal-dest-manual', placeholder: 'Es. Locale caldaia, Sala riunioni...' }).trim()}
+            </div>
             <div style="padding: 16px;">
                 <button class="btn btn-primary" id="modal-confirm-room">Conferma</button>
             </div>
@@ -576,11 +579,22 @@ const RoomsView = {
                 document.querySelectorAll('#modal-content .btn-choice').forEach(b => b.classList.remove('selected'));
                 btn.classList.add('selected');
                 selectedDest = btn.dataset.value;
+                // Pulisci campo manuale quando si seleziona un bottone
+                const manual = document.getElementById('modal-dest-manual');
+                if (manual) manual.value = '';
             });
+        });
+
+        // Campo manuale: deseleziona bottoni quando si scrive
+        document.getElementById('modal-dest-manual')?.addEventListener('input', () => {
+            document.querySelectorAll('#modal-content .btn-choice').forEach(b => b.classList.remove('selected'));
+            selectedDest = '';
         });
 
         document.getElementById('modal-confirm-room').addEventListener('click', async () => {
             const roomNum = document.getElementById('modal-room-num').value.trim();
+            const manualDest = (document.getElementById('modal-dest-manual')?.value || '').trim().toUpperCase();
+            if (manualDest) selectedDest = manualDest;
             if (!roomNum || !selectedDest) { UI.toast('Seleziona numero e destinazione'); return; }
 
             // Nome come nel bot: "Vano N - Dest (Piano)"
