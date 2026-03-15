@@ -46,7 +46,7 @@
     --radius: 8px;
     --radius-sm: 6px;
     --radius-lg: 12px;
-    --header-h: 96px;
+    --header-h: 125px;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-top: env(safe-area-inset-top, 0px);
 }
