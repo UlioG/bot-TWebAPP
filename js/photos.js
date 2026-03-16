@@ -128,14 +128,29 @@ const Photos = {
             filename = `Foto_${num}_dettaglio.jpg`;
         }
 
+        // Converti Blob → ArrayBuffer per prevenire eviction iOS WebView.
+        // IndexedDB su iOS puo' svuotare i Blob dopo background, ma gli ArrayBuffer persistono.
+        let safeBlob = blob;
+        let safeThumb = thumbnail;
+        try {
+            if (blob instanceof Blob) {
+                safeBlob = await blob.arrayBuffer();
+            }
+            if (thumbnail instanceof Blob) {
+                safeThumb = await thumbnail.arrayBuffer();
+            }
+        } catch (e) {
+            console.warn('[Photos] Conversione ArrayBuffer fallita, salvo come Blob:', e);
+        }
+
         const photoData = {
             id: id,
             sopralluogo_id: sopralluogoId,
             room_name: roomName,
             type: type,
             filename: filename,
-            blob: blob,
-            thumbnail: thumbnail,
+            blob: safeBlob,
+            thumbnail: safeThumb,
             observation_key: observationKey,
             pertinenza_index: pertinenzaIndex,
             created_at: Date.now(),
@@ -158,10 +173,24 @@ const Photos = {
     /**
      * Ottieni URL temporaneo per visualizzazione thumbnail
      */
+    /**
+     * Converte ArrayBuffer → Blob per createObjectURL (necessario dopo fix iOS eviction).
+     */
+    _toBlob(data) {
+        if (!data) return null;
+        if (data instanceof Blob) return data;
+        if (data instanceof ArrayBuffer || (data.byteLength !== undefined)) {
+            return new Blob([data], { type: 'image/jpeg' });
+        }
+        return data;
+    },
+
     async getThumbnailUrl(photoId) {
         const photo = await DB.getPhoto(photoId);
         if (!photo || !photo.thumbnail) return null;
-        const url = URL.createObjectURL(photo.thumbnail);
+        const blob = this._toBlob(photo.thumbnail);
+        if (!blob) return null;
+        const url = URL.createObjectURL(blob);
         this._activeObjectUrls.push(url);
         return url;
     },
@@ -172,7 +201,9 @@ const Photos = {
     async getFullUrl(photoId) {
         const photo = await DB.getPhoto(photoId);
         if (!photo || !photo.blob) return null;
-        const url = URL.createObjectURL(photo.blob);
+        const blob = this._toBlob(photo.blob);
+        if (!blob) return null;
+        const url = URL.createObjectURL(blob);
         this._activeObjectUrls.push(url);
         return url;
     },

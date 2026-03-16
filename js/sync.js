@@ -388,10 +388,34 @@ const Sync = {
             let skippedRoom = 0;
             let lastError = '';
 
-            console.log(`[PHOTO SYNC] Totale foto in IndexedDB: ${photos.length}, role=${result.role}`);
+            // Diagnostica: conteggio blob con dati vs vuoti
+            let blobOk = 0, blobEmpty = 0, blobType = '';
+            for (const p of photos) {
+                if (!p.blob) continue;
+                const sz = p.blob.size || p.blob.byteLength || 0;
+                if (sz > 0) blobOk++;
+                else blobEmpty++;
+                if (!blobType && p.blob) blobType = typeof p.blob + '/' + (p.blob.constructor ? p.blob.constructor.name : '?');
+            }
+            console.log(`[PHOTO SYNC] Totale: ${photos.length}, blobOk=${blobOk}, blobEmpty=${blobEmpty}, blobType=${blobType}, role=${result.role}`);
 
             for (const photo of photos) {
                 if (!photo.blob) { skippedNoBlob++; continue; }
+
+                // Check blob size — iOS WebView puo' evitare i blob da IndexedDB
+                const blobSize = photo.blob.size || photo.blob.byteLength || 0;
+                if (blobSize === 0) {
+                    // Blob vuoto: prova a usare thumbnail come fallback
+                    if (photo.thumbnail && (photo.thumbnail.size || photo.thumbnail.byteLength || 0) > 0) {
+                        console.warn(`[PHOTO SYNC] Blob vuoto per ${photo.filename}, uso thumbnail come fallback`);
+                        photo.blob = photo.thumbnail;
+                    } else {
+                        console.error(`[PHOTO SYNC] Blob vuoto per ${photo.filename}, nessun fallback`);
+                        failed++;
+                        lastError = `Blob vuoto (0 bytes) - ${photo.filename}`;
+                        continue;
+                    }
+                }
 
                 // Fase E: skip foto per vani scartati (secondario, master vince)
                 if (result.role === 'secondary' && result.skipped_room_names &&
@@ -561,8 +585,12 @@ const Sync = {
             }
         }
 
-        // Aggiungi il blob della foto
-        formData.append('photo', photo.blob, photo.filename || 'photo.jpg');
+        // Aggiungi il blob della foto (ArrayBuffer → Blob per FormData)
+        let uploadBlob = photo.blob;
+        if (uploadBlob instanceof ArrayBuffer || (uploadBlob && uploadBlob.byteLength !== undefined && !(uploadBlob instanceof Blob))) {
+            uploadBlob = new Blob([uploadBlob], { type: 'image/jpeg' });
+        }
+        formData.append('photo', uploadBlob, photo.filename || 'photo.jpg');
 
         const resp = await this._apiFetch('/api/sync/photo', {
             method: 'POST',
