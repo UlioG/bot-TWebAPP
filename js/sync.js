@@ -384,13 +384,19 @@ const Sync = {
             const photos = await DB.getPhotosBySopralluogo(sopralluogoId);
             let uploaded = 0;
             let failed = 0;
+            let skippedNoBlob = 0;
+            let skippedRoom = 0;
+            let lastError = '';
+
+            console.log(`[PHOTO SYNC] Totale foto in IndexedDB: ${photos.length}, role=${result.role}`);
 
             for (const photo of photos) {
-                if (!photo.blob) continue;
+                if (!photo.blob) { skippedNoBlob++; continue; }
 
                 // Fase E: skip foto per vani scartati (secondario, master vince)
                 if (result.role === 'secondary' && result.skipped_room_names &&
                     result.skipped_room_names.includes(photo.room_name)) {
+                    skippedRoom++;
                     continue;
                 }
 
@@ -402,12 +408,16 @@ const Sync = {
                         await DB.put('photos', photo);
                     } else {
                         failed++;
+                        lastError = 'upload returned false';
                     }
                 } catch (e) {
-                    console.error(`Errore upload foto ${photo.filename}:`, e);
+                    console.error(`Errore upload foto ${photo.filename} (room=${photo.room_name}):`, e);
                     failed++;
+                    lastError = e.message || String(e);
                 }
             }
+
+            console.log(`[PHOTO SYNC] Risultato: ${uploaded} ok, ${failed} fallite, ${skippedNoBlob} senza blob, ${skippedRoom} skip room. Last error: ${lastError}`);
 
             // Fase 2b: genera e carica foto panoramiche con marker (_MARKED)
             // Raccoglie tutte le rooms (main + pertinenze)
@@ -481,6 +491,7 @@ const Sync = {
                 }
                 msg += `. Master (${result.master_operator_name || '?'}) ha ${result.total_rooms_on_disk || '?'} vani totali.`;
                 if (uploaded > 0) msg += ` ${uploaded} foto caricate.`;
+                if (failed > 0) msg += ` (${failed} foto fallite)`;
                 UI.toast(msg, 5000);
             } else if (result.role === 'master' && result.secondary_rooms && result.secondary_rooms.length > 0) {
                 const secNames = result.secondary_rooms.map(r => r.name).join(', ');

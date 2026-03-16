@@ -501,6 +501,14 @@ const Events = {
             case 'set_manual_text':
                 if (sop.rooms[p.room_name]) {
                     sop.rooms[p.room_name].manual_text = p.text;
+                } else {
+                    // Cerca nelle pertinenze
+                    for (const pert of (sop.pertinenze || [])) {
+                        if (pert.rooms && pert.rooms[p.room_name]) {
+                            pert.rooms[p.room_name].manual_text = p.text;
+                            break;
+                        }
+                    }
                 }
                 break;
 
@@ -510,6 +518,14 @@ const Events = {
                 // Testo custom per singolo vano (override del testo auto-generato nel verbale)
                 if (sop.rooms[p.room_name]) {
                     sop.rooms[p.room_name].custom_room_text = p.text; // null = auto, string = custom
+                } else {
+                    // Cerca nelle pertinenze
+                    for (const pert of (sop.pertinenze || [])) {
+                        if (pert.rooms && pert.rooms[p.room_name]) {
+                            pert.rooms[p.room_name].custom_room_text = p.text;
+                            break;
+                        }
+                    }
                 }
                 break;
 
