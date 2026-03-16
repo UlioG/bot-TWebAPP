@@ -182,10 +182,6 @@ const UI = {
                     <span class="pc-cat-icon">🏛</span>
                     <span class="pc-cat-label">Prospetti</span>
                 </button>
-                <button class="pc-cat-btn" data-cat="pertinenze">
-                    <span class="pc-cat-icon">📦</span>
-                    <span class="pc-cat-label">Pertinenze</span>
-                </button>
             </div>
         `;
     },
@@ -487,10 +483,11 @@ const UI = {
         const esc = UI._escapeHtml;
         const completed = pert.completed ? '✅' : '⬜';
         const roomCount = pert.rooms ? Object.keys(pert.rooms).length : 0;
-        // Build display name: "Cantina - Sub. 12 - N. 3 (Piano Terra)"
+        // Build display name: "Cantina - Sub. 12 - N. 3 - Prop. Rossi (Piano Terra)"
         const nameParts = [pert.type || 'Pertinenza'];
         if (pert.sub) nameParts.push(`Sub. ${pert.sub}`);
         if (pert.numero) nameParts.push(`N. ${pert.numero}`);
+        if (pert.proprietario) nameParts.push(`Prop. ${pert.proprietario}`);
         let displayName = nameParts.join(' - ');
         if (pert.piano) displayName += ` (${pert.piano})`;
         const subtitle = roomCount > 0 ? `${roomCount} vani` : 'Nessun vano';

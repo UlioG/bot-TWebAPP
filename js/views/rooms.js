@@ -48,9 +48,16 @@ const RoomsView = {
     // ========== LISTA VANI ==========
 
     async renderRoomList(container, sop) {
+        // Pertinenze standalone: se non in una pertinenza, vai al menu pertinenze
+        const isPertStandalone = sop.unit_type === 'Pertinenze';
+        const inPert = Events.isInPertinenza(sop);
+        if (isPertStandalone && !inPert) {
+            App.navigate(`pertinenze/${this.sopId}`, true);
+            return;
+        }
+
         const esc = UI._escapeHtml;
         const isPC = CONFIG.isPartiComuni(sop.unit_name || sop.unit_type);
-        const inPert = Events.isInPertinenza(sop);
         const rooms = Events.getActiveRooms(sop);
         const roomNames = Object.keys(rooms);
 
@@ -71,10 +78,11 @@ const RoomsView = {
         // Context header
         if (inPert && sop.pertinenze && sop.pertinenze[sop.active_pertinenza]) {
             const pert = sop.pertinenze[sop.active_pertinenza];
-            // Build full display name
+            // Build full display name con proprietario
             const nameParts = [pert.type || 'Pertinenza'];
             if (pert.sub) nameParts.push(`Sub. ${pert.sub}`);
             if (pert.numero) nameParts.push(`N. ${pert.numero}`);
+            if (pert.proprietario) nameParts.push(`Prop. ${pert.proprietario}`);
             let pertLabel = nameParts.join(' - ');
             if (pert.piano) pertLabel += ` (${pert.piano})`;
             html += UI.contextHeader(`📦 ${pertLabel}`, '📦');
@@ -248,13 +256,17 @@ const RoomsView = {
             html += `<button class="btn btn-outline" id="btn-allontana">🚪 Si Allontana</button>`;
         }
 
-        // Pertinenze (solo per unita' non-PC, non in pertinenza)
-        if (!isPC && !inPert && CONFIG.PERTINENZA_PARENT_TYPES.includes(sop.unit_type)) {
+        // Pertinenze (solo per unita' non-PC, non in pertinenza, non standalone pertinenze)
+        if (!isPC && !inPert && sop.unit_type !== 'Pertinenze' && CONFIG.PERTINENZA_PARENT_TYPES.includes(sop.unit_type)) {
             html += `<button class="btn btn-outline" id="btn-goto-pert">📦 Pertinenze</button>`;
         }
-        // Torna all'appartamento (se in pertinenza)
+        // Torna indietro (se in pertinenza)
         if (inPert) {
-            html += `<button class="btn btn-outline" id="btn-back-apt">🏠 Torna all'Appartamento</button>`;
+            const isPertStandalone = sop.unit_type === 'Pertinenze';
+            const backLabel = isPertStandalone
+                ? '📦 Menu Pertinenze'
+                : isPC ? '📋 Torna alle Parti Comuni' : '🏠 Torna all\'Appartamento';
+            html += `<button class="btn btn-outline" id="btn-back-apt">${backLabel}</button>`;
         }
 
         // Interruzione sopralluogo (solo PC, non in pertinenza)

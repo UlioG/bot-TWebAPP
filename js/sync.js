@@ -550,6 +550,7 @@ const Sync = {
                 const parts = [pert.type || 'Pertinenza'];
                 if (pert.sub) parts.push(`Sub. ${pert.sub}`);
                 if (pert.numero) parts.push(`N. ${pert.numero}`);
+                if (pert.proprietario) parts.push(`Prop. ${pert.proprietario}`);
                 if (pert.indirizzo) parts.push(pert.indirizzo);
                 let folder = parts.join(' - ');
                 if (pert.piano) folder += ` (${pert.piano})`;

@@ -60,9 +60,9 @@ const SetupView = {
             if (!sop.unit_internal) return 'indirizzo_civico';
         } else if (['Cantina', 'Soffitta'].includes(ut)) {
             if (!sop.unit_internal) return 'identificativo';
-        } else if (ut === 'Parti Comuni') {
-            // PC: skip multi_floor, floor, stair, planimetria
-            // Piani e scale si gestiscono nel menu Scale interno
+        } else if (ut === 'Parti Comuni' || ut === 'Pertinenze') {
+            // PC e Pertinenze: skip multi_floor, floor, stair, planimetria
+            // Per Pertinenze: piano/sub/proprietario si chiedono per ogni pertinenza
             return 'done';
         }
 
@@ -298,6 +298,8 @@ const SetupView = {
 
     /**
      * Sotto-menu Pertinenze: Singola / Piu'
+     * Dopo la scelta, unit_type = 'Pertinenze' e si va ad anagrafica.
+     * Il tipo specifico (Cantina/Box...) si sceglie in pertinenze.js per ogni pertinenza.
      */
     _renderPertTypeChoice(container, sop) {
         UI.setTitle('Pertinenze');
@@ -313,8 +315,12 @@ const SetupView = {
         container.innerHTML = html;
 
         const selectPertMode = async (multiMode) => {
-            // Mostra scelta tipo pertinenza
-            this._renderPertStandaloneType(container, sop, multiMode);
+            this._unitTypeSub = null;
+            await Events.dispatch('update_setup', this.sopId, {
+                unit_type: 'Pertinenze',
+                pert_multi_mode: multiMode
+            });
+            this._advance(container);
         };
 
         document.getElementById('pert-single').addEventListener('click', () => selectPertMode(false));
@@ -322,55 +328,6 @@ const SetupView = {
         document.getElementById('btn-back-cat').addEventListener('click', () => {
             this._unitTypeSub = null;
             this._renderUnitType(container, sop);
-        });
-    },
-
-    /**
-     * Scelta tipo pertinenza standalone (Cantina/Box/Soffitta/Posto auto/Scrivi a Mano)
-     */
-    _renderPertStandaloneType(container, sop, multiMode) {
-        UI.setTitle('Tipo Pertinenza');
-        let html = this._summaryBar(sop);
-        html += `<div class="wizard-header"><div class="wizard-step">Seleziona il tipo di pertinenza</div></div>`;
-
-        const types = CONFIG.PERTINENZA_TYPES || ['Cantina', 'Soffitta', 'Box', 'Posto auto'];
-        html += UI.buttonGrid(types.map(t => ({ value: t, label: t })));
-
-        html += UI.divider();
-        html += `<div style="padding: 0 16px;">
-            <button class="btn btn-outline" id="btn-pert-manual" style="width:100%;">✏️ Scrivi a Mano</button>
-        </div>`;
-        html += `<div style="padding: 8px 16px;">
-            <button class="btn btn-secondary" id="btn-back-pert">🔙 Indietro</button>
-        </div>`;
-
-        container.innerHTML = html;
-
-        // Tipo pertinenza selezionato
-        container.querySelectorAll('.btn-choice').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                this._unitTypeSub = null;
-                await Events.dispatch('update_setup', this.sopId, {
-                    unit_type: btn.dataset.value,
-                    pert_multi_mode: multiMode
-                });
-                this._advance(container);
-            });
-        });
-
-        // Scrivi a Mano
-        document.getElementById('btn-pert-manual').addEventListener('click', async () => {
-            this._unitTypeSub = null;
-            await Events.dispatch('update_setup', this.sopId, {
-                unit_type: 'Scrivi a Mano',
-                pert_multi_mode: multiMode
-            });
-            this._advance(container);
-        });
-
-        // Indietro
-        document.getElementById('btn-back-pert').addEventListener('click', () => {
-            this._renderPertTypeChoice(container, sop);
         });
     },
 

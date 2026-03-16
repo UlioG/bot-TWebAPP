@@ -144,10 +144,11 @@ const ReviewView = {
             for (let i = 0; i < sop.pertinenze.length; i++) {
                 const pert = sop.pertinenze[i];
                 const pertRoomCount = Object.keys(pert.rooms || {}).length;
-                // Build display name
+                // Build display name con proprietario
                 const pertParts = [pert.type || 'Pertinenza'];
                 if (pert.sub) pertParts.push(`Sub. ${pert.sub}`);
                 if (pert.numero) pertParts.push(`N. ${pert.numero}`);
+                if (pert.proprietario) pertParts.push(`Prop. ${pert.proprietario}`);
                 let pertDisplayName = pertParts.join(' - ');
                 if (pert.piano) pertDisplayName += ` (${pert.piano})`;
                 pertHtml += UI.cell({
@@ -158,9 +159,16 @@ const ReviewView = {
                     chevron: true
                 });
             }
-            const orderLabel = sop.pert_order === 'pert_first' ? '\uD83D\uDCE6 Pertinenze prima' : '\uD83C\uDFE0 Appartamento prima';
-            pertHtml += `<div style="padding: 8px 0; display:flex; gap:8px;">
-                <button class="btn btn-outline" id="btn-toggle-pert-order" style="flex:1; font-size:13px;">${orderLabel}</button>
+            const isPertStandalone = sop.unit_type === 'Pertinenze';
+            if (!isPertStandalone) {
+                const orderLabel = sop.pert_order === 'pert_first' ? '\uD83D\uDCE6 Pertinenze prima' : '\uD83C\uDFE0 Appartamento prima';
+                pertHtml += `<div style="padding: 8px 0; display:flex; gap:8px;">
+                    <button class="btn btn-outline" id="btn-toggle-pert-order" style="flex:1; font-size:13px;">${orderLabel}</button>
+                </div>`;
+            }
+            // Bottone "Nuova Pertinenza" per tornare al menu pertinenze
+            pertHtml += `<div style="padding: 8px 0;">
+                <button class="btn btn-outline" id="btn-new-pert" style="width:100%; border-color:#1976d2; color:#1976d2;">📦 Nuova Pertinenza</button>
             </div>`;
             html += UI.section('PERTINENZE', pertHtml);
         }
@@ -384,6 +392,11 @@ const ReviewView = {
             await Events.dispatch('set_pert_order', this.sopId, { order: newOrder });
             UI.toast(newOrder === 'pert_first' ? 'Pertinenze prima nel verbale' : 'Appartamento prima nel verbale');
             rerender();
+        });
+
+        // Nuova Pertinenza → torna al menu pertinenze
+        document.getElementById('btn-new-pert')?.addEventListener('click', () => {
+            App.navigate(`pertinenze/${this.sopId}`);
         });
 
         // Edit operator note

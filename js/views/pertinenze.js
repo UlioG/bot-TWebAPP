@@ -14,15 +14,23 @@ const PertinenzaView = {
         if (!sop) { App.navigate('home', true); return; }
 
         const isPertPC = sop.pert_order === 'pert_pc';
+        const isPertStandalone = sop.unit_type === 'Pertinenze';
         const isMulti = !!sop.pert_multi_mode;
         UI.setTitle(isPertPC ? 'Pertinenze PC' : 'Pertinenze');
-        UI.showBack(true, () => App.navigate(`rooms/${this.sopId}`));
+        UI.showBack(true, () => {
+            if (isPertStandalone) {
+                App.navigate('home');
+            } else {
+                App.navigate(`rooms/${this.sopId}`);
+            }
+        });
 
         const pertinenze = sop.pertinenze || [];
         let html = '';
 
         // Header
-        html += UI.contextHeader('📦 Pertinenze dell\'unita\'', '📦');
+        const headerLabel = isPertStandalone ? '📦 Menu Pertinenze' : '📦 Pertinenze dell\'unita\'';
+        html += UI.contextHeader(headerLabel, '📦');
 
         // Banner multi-mode
         if (isMulti) {
@@ -44,7 +52,6 @@ const PertinenzaView = {
         }
 
         // Bottoni
-        const backLabel = isPertPC ? '📋 Menu Parti Comuni' : '🏠 Torna all\'Appartamento';
         html += `<div style="padding: 16px; display:flex; flex-direction:column; gap:8px;">
             <button class="btn btn-primary" id="btn-add-pert">Aggiungi Pertinenza</button>`;
 
@@ -55,8 +62,17 @@ const PertinenzaView = {
             </button>`;
         }
 
-        html += `<button class="btn btn-secondary" id="btn-back-rooms">${backLabel}</button>
-        </div>`;
+        // Standalone: Riepilogo/Report (se ha almeno una pertinenza)
+        if (isPertStandalone && pertinenze.length > 0) {
+            html += `<button class="btn btn-secondary" id="btn-review">Riepilogo / Report</button>`;
+        }
+
+        // Back button
+        if (!isPertStandalone) {
+            const backLabel = isPertPC ? '📋 Menu Parti Comuni' : '🏠 Torna all\'Appartamento';
+            html += `<button class="btn btn-secondary" id="btn-back-rooms">${backLabel}</button>`;
+        }
+        html += `</div>`;
 
         container.innerHTML = html;
 
@@ -79,8 +95,13 @@ const PertinenzaView = {
             App.navigate(`rooms/${this.sopId}`);
         });
 
+        // Riepilogo / Report (standalone)
+        document.getElementById('btn-review')?.addEventListener('click', () => {
+            App.navigate(`review/${this.sopId}`);
+        });
+
         // Back
-        document.getElementById('btn-back-rooms').addEventListener('click', () => {
+        document.getElementById('btn-back-rooms')?.addEventListener('click', () => {
             App.navigate(`rooms/${this.sopId}`);
         });
 
@@ -102,9 +123,38 @@ const PertinenzaView = {
      */
     _showAddPertModal(sop) {
         const types = CONFIG.PERTINENZA_TYPES || ['Cantina', 'Soffitta', 'Box', 'Posto auto'];
-        UI.choiceModal('Tipo Pertinenza', types, (type) => {
-            this._pertData = { type, sub: '', numero: '', indirizzo: '', piano: '' };
-            this._askPertSub(sop);
+        // Aggiungi "Scrivi a Mano" come ultima opzione
+        const allTypes = [...types, '✏️ Scrivi a Mano'];
+        UI.choiceModal('Tipo Pertinenza', allTypes, (type) => {
+            if (type === '✏️ Scrivi a Mano') {
+                UI.promptInput('Tipo Pertinenza', 'Scrivi il tipo di pertinenza', (customType) => {
+                    const ct = (customType || '').trim();
+                    if (!ct) { UI.toast('Inserisci un tipo'); return; }
+                    this._pertData = { type: ct, sub: '', numero: '', indirizzo: '', piano: '', proprietario: '' };
+                    this._askPertPiano(sop);
+                }, { placeholder: 'Es. Deposito, Magazzino...' });
+            } else {
+                this._pertData = { type, sub: '', numero: '', indirizzo: '', piano: '', proprietario: '' };
+                this._askPertPiano(sop);
+            }
+        });
+    },
+
+    _askPertPiano(sop) {
+        const floors = CONFIG.PREDEFINED_FLOORS || [];
+        const choices = floors.map(f => ({ value: f, label: f }));
+        choices.push({ value: '__manual__', label: '✏️ Scrivi a mano' });
+
+        UI.choiceModal('Piano Pertinenza', choices, (piano) => {
+            if (piano === '__manual__') {
+                UI.promptInput('Piano', 'Scrivi il piano', (customPiano) => {
+                    this._pertData.piano = (customPiano || '').trim();
+                    this._askPertSub(sop);
+                }, { placeholder: 'Es. Piano Interrato 2' });
+            } else {
+                this._pertData.piano = piano;
+                this._askPertSub(sop);
+            }
         });
     },
 
@@ -123,7 +173,7 @@ const PertinenzaView = {
             if (needsAddress) {
                 this._askPertIndirizzo(sop);
             } else {
-                this._askPertPiano(sop);
+                this._askPertProprietario(sop);
             }
         }, { placeholder: 'Es. 3', allowEmpty: true });
     },
@@ -131,26 +181,15 @@ const PertinenzaView = {
     _askPertIndirizzo(sop) {
         UI.promptInput('Indirizzo', `Indirizzo del ${this._pertData.type}`, (indirizzo) => {
             this._pertData.indirizzo = (indirizzo || '').trim();
-            this._askPertPiano(sop);
+            this._askPertProprietario(sop);
         }, { placeholder: 'Es. Via Roma 10', allowEmpty: true });
     },
 
-    _askPertPiano(sop) {
-        const floors = CONFIG.PREDEFINED_FLOORS || [];
-        const choices = floors.map(f => ({ value: f, label: f }));
-        choices.push({ value: '__manual__', label: '✏️ Scrivi a mano' });
-
-        UI.choiceModal('Piano Pertinenza', choices, async (piano) => {
-            if (piano === '__manual__') {
-                UI.promptInput('Piano', 'Scrivi il piano', async (customPiano) => {
-                    this._pertData.piano = (customPiano || '').trim();
-                    await this._finalizePert(sop);
-                }, { placeholder: 'Es. Piano Interrato 2' });
-            } else {
-                this._pertData.piano = piano;
-                await this._finalizePert(sop);
-            }
-        });
+    _askPertProprietario(sop) {
+        UI.promptInput('Proprietario', 'Nome del proprietario della pertinenza', (proprietario) => {
+            this._pertData.proprietario = (proprietario || '').trim();
+            this._finalizePert(sop);
+        }, { placeholder: 'Es. Rossi Paolo', allowEmpty: true });
     },
 
     async _finalizePert(sop) {
@@ -160,6 +199,7 @@ const PertinenzaView = {
             numero: this._pertData.numero,
             indirizzo: this._pertData.indirizzo,
             piano: this._pertData.piano,
+            proprietario: this._pertData.proprietario,
             floor: sop.floor
         });
 
@@ -167,6 +207,7 @@ const PertinenzaView = {
         const parts = [this._pertData.type];
         if (this._pertData.sub) parts.push(`Sub. ${this._pertData.sub}`);
         if (this._pertData.numero) parts.push(`N. ${this._pertData.numero}`);
+        if (this._pertData.proprietario) parts.push(`Prop. ${this._pertData.proprietario}`);
         UI.toast(`${parts.join(' - ')} aggiunta`);
 
         // Entra subito nella nuova pertinenza
