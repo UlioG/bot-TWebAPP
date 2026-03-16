@@ -324,10 +324,6 @@ const RoomsView = {
                     App.navigate(`stairs/${this.sopId}`);
                 } else if (cat === 'prospetti') {
                     this._addProspettiRoom(sop);
-                } else if (cat === 'pertinenze') {
-                    // Pertinenze dentro PC: setta flag e naviga
-                    await Events.dispatch('update_setup', this.sopId, { pert_order: 'pert_pc' });
-                    App.navigate(`pertinenze/${this.sopId}`);
                 }
             });
         });
