@@ -502,7 +502,27 @@ const Sync = {
             sop.synced = true;
             await DB.saveSopralluogo(sop);
 
+            // Auto-purge foto dettaglio se storage > 80%
+            let purgedCount = 0;
+            try {
+                if (navigator.storage && navigator.storage.estimate) {
+                    const est = await navigator.storage.estimate();
+                    const usageRatio = est.usage / est.quota;
+                    if (usageRatio > 0.80) {
+                        purgedCount = await DB.purgeSyncedDetailPhotos(sop.id);
+                        if (purgedCount > 0) {
+                            console.log(`[Sync] Auto-purge: ${purgedCount} foto dettaglio eliminate (usage: ${Math.round(usageRatio * 100)}%)`);
+                        }
+                    }
+                }
+            } catch (purgeErr) {
+                console.warn('[Sync] Errore auto-purge:', purgeErr);
+            }
+
             this._updateSyncButton('done');
+
+            // Suffisso purge per toast
+            const purgeSuffix = purgedCount > 0 ? ` Liberate ${purgedCount} foto dal dispositivo.` : '';
 
             // Fase E: toast differenziato per ruolo
             if (result.role === 'secondary') {
@@ -516,16 +536,19 @@ const Sync = {
                 msg += `. Master (${result.master_operator_name || '?'}) ha ${result.total_rooms_on_disk || '?'} vani totali.`;
                 if (uploaded > 0) msg += ` ${uploaded} foto caricate.`;
                 if (failed > 0) msg += ` (${failed} foto fallite: ${lastError})`;
+                msg += purgeSuffix;
                 UI.toast(msg, 8000);
             } else if (result.role === 'master' && result.secondary_rooms && result.secondary_rooms.length > 0) {
                 const secNames = result.secondary_rooms.map(r => r.name).join(', ');
                 let msg = `Sincronizzato: ${result.rooms_saved || 0} vani, ${uploaded} foto.`;
                 msg += ` Vani da altri operatori: ${secNames}`;
                 if (failed > 0) msg += ` (${failed} foto fallite: ${lastError})`;
+                msg += purgeSuffix;
                 UI.toast(msg, 8000);
             } else {
                 let msg = `Sincronizzato: ${result.rooms_saved || 0} vani, ${uploaded} foto`;
                 if (failed > 0) msg += ` (${failed} foto fallite)`;
+                msg += purgeSuffix;
                 UI.toast(msg);
             }
 
@@ -922,6 +945,7 @@ const Sync = {
         t.marker_coords = room.marker_coords;
         t.completed_surfaces = room.completed_surfaces;
         t.photos = room.photos;
+        if (room.created_at) t.created_at = room.created_at;
 
         // status → disclaimer_type (NON_VALUTABILE, NON_ACCESSIBILE, NON_AUTORIZZATO)
         const statusMap = {

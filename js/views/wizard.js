@@ -39,6 +39,7 @@ const WizardView = {
 
         // Reset wizard state
         this.obs = this._emptyObs();
+        this._manualPhenomenon = false;
 
         // Prospetti: leggi contesto piano/HREF da ProspettiView
         if (isProsp && typeof ProspettiView !== 'undefined') {
@@ -133,7 +134,7 @@ const WizardView = {
             'prosecution': 'details',
             'prosecution_target': 'prosecution',
             'notes': 'prosecution',
-            'photo': 'notes',
+            'photo': this._manualPhenomenon ? 'phenomenon' : 'notes',
             'confirm': 'photo'
         };
 
@@ -881,12 +882,13 @@ const WizardView = {
             });
         });
 
-        // Scrivi a Mano fenomeno
+        // Scrivi a Mano fenomeno → salta direttamente a foto
         document.getElementById('btn-phen-manual')?.addEventListener('click', () => {
             UI.promptInput('Scrivi a Mano', 'Scrivi la descrizione completa del difetto', (val) => {
                 if (!val) return;
                 this.obs.phenomenon = val;
-                this.step = 'notes';
+                this._manualPhenomenon = true; // back da photo torna a phenomenon
+                this.step = 'photo';
                 this.renderStep();
             }, { multiline: true });
         });

@@ -31,6 +31,9 @@ const HomeView = {
             </div>
         `;
 
+        // Barra memoria (placeholder, riempita async dopo render)
+        html += `<div id="storage-bar-container" style="padding: 0 16px 12px; display:none;"></div>`;
+
         // In corso
         if (inCorso.length > 0) {
             let cells = '';
@@ -91,6 +94,9 @@ const HomeView = {
 
         container.innerHTML = html;
 
+        // Barra memoria (async)
+        this._renderStorageBar();
+
         // Event: nuovo sopralluogo
         document.getElementById('btn-new-sop').addEventListener('click', async () => {
             const id = await Events.createSopralluogo({});
@@ -120,7 +126,7 @@ const HomeView = {
         container.querySelectorAll('.cell[data-id]').forEach(cell => {
             cell.addEventListener('click', (e) => {
                 // Se il click è su un bottone azione, non navigare
-                if (e.target.closest('.sop-hide-btn') || e.target.closest('.sop-restore-btn')) return;
+                if (e.target.closest('.sop-hide-btn') || e.target.closest('.sop-restore-btn') || e.target.closest('.sop-delete-btn')) return;
 
                 const id = cell.dataset.id;
                 DB.getSopralluogo(id).then(sop => {
@@ -155,6 +161,18 @@ const HomeView = {
                 this._toggleHidden(sopId, false);
             });
         });
+
+        // Event: elimina sopralluogo dal dispositivo (solo se già sincronizzato)
+        container.querySelectorAll('.sop-delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const sopId = btn.dataset.sopId;
+                UI.confirmAction(
+                    'Vuoi eliminare questo sopralluogo dal dispositivo?\n\nI dati sono già salvati sul server.',
+                    () => this._deleteSopralluogo(sopId)
+                );
+            });
+        });
     },
 
     /**
@@ -171,6 +189,85 @@ const HomeView = {
         } catch (err) {
             console.error('Toggle hidden error:', err);
             UI.toast('Errore');
+        }
+    },
+
+    /**
+     * Mostra la barra di utilizzo memoria (IndexedDB) nella home.
+     * Usa navigator.storage.estimate() per leggere uso/quota reali.
+     */
+    async _renderStorageBar() {
+        const container = document.getElementById('storage-bar-container');
+        if (!container) return;
+
+        try {
+            if (!navigator.storage || !navigator.storage.estimate) {
+                // Browser non supporta Storage API — nascondi
+                return;
+            }
+
+            const est = await navigator.storage.estimate();
+            const usage = est.usage || 0;
+            const quota = est.quota || 1;
+            const pct = Math.min(Math.round((usage / quota) * 100), 100);
+
+            // Formatta dimensioni leggibili
+            const formatSize = (bytes) => {
+                if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+                if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+                return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+            };
+
+            // Colore: verde (0-60%), giallo (60-80%), rosso (80%+)
+            let barColor = '#4caf50';
+            let textColor = '#555';
+            if (pct >= 80) {
+                barColor = '#f44336';
+                textColor = '#d32f2f';
+            } else if (pct >= 60) {
+                barColor = '#ff9800';
+                textColor = '#e65100';
+            }
+
+            let html = `
+                <div style="background: #f5f5f5; border-radius: 8px; padding: 10px 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 12px; font-weight: 600; color: ${textColor};">Memoria</span>
+                        <span style="font-size: 11px; color: ${textColor};">${formatSize(usage)} / ${formatSize(quota)} (${pct}%)</span>
+                    </div>
+                    <div style="background: #e0e0e0; border-radius: 4px; height: 8px; overflow: hidden;">
+                        <div style="background: ${barColor}; height: 100%; width: ${pct}%; border-radius: 4px; transition: width 0.3s;"></div>
+                    </div>`;
+
+            // Avviso quando spazio critico (80%+)
+            if (pct >= 80) {
+                html += `
+                    <div style="margin-top: 8px; font-size: 11px; color: #d32f2f; font-weight: 500;">
+                        ⚠️ Spazio quasi pieno. Elimina i sopralluoghi già sincronizzati (🗑️).
+                    </div>`;
+            }
+
+            html += `</div>`;
+
+            container.innerHTML = html;
+            container.style.display = 'block';
+        } catch (err) {
+            console.warn('Storage estimate non disponibile:', err);
+        }
+    },
+
+    /**
+     * Elimina un sopralluogo da IndexedDB (sopralluogo + eventi + foto).
+     * Solo per sopralluoghi già sincronizzati — i dati sono al sicuro sul server.
+     */
+    async _deleteSopralluogo(sopId) {
+        try {
+            await DB.deleteSopralluogo(sopId);
+            UI.toast('Sopralluogo eliminato dal dispositivo');
+            this.render(document.getElementById('app-content'));
+        } catch (err) {
+            console.error('Delete sopralluogo error:', err);
+            UI.toast('Errore durante l\'eliminazione');
         }
     },
 
@@ -195,12 +292,16 @@ const HomeView = {
             subtitle = `${floorLabel} | ${roomCount} vani`;
         }
 
-        // Bottone: nascondi (👁‍🗨→🙈) o ripristina (🔄)
+        // Bottoni azione: nascondi/ripristina + elimina (solo se sincronizzato)
         let actionBtn = '';
         if (isHidden) {
             actionBtn = `<button class="sop-restore-btn" data-sop-id="${esc(sop.id)}" title="Ripristina">🔄</button>`;
         } else {
             actionBtn = `<button class="sop-hide-btn" data-sop-id="${esc(sop.id)}" title="Nascondi">🙈</button>`;
+        }
+        // Cestino: solo per sopralluoghi già sincronizzati
+        if (sop.synced) {
+            actionBtn += `<button class="sop-delete-btn" data-sop-id="${esc(sop.id)}" title="Elimina dal dispositivo">🗑️</button>`;
         }
 
         return `

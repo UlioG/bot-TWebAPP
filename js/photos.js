@@ -2,10 +2,10 @@
  * photos.js - Gestione foto: cattura, resize, store in IndexedDB
  */
 const Photos = {
-    MAX_WIDTH: 1920,
-    MAX_HEIGHT: 1920,
+    MAX_WIDTH: 3200,
+    MAX_HEIGHT: 3200,
     THUMB_SIZE: 200,
-    QUALITY: 0.85,
+    QUALITY: 0.80,
     _activeObjectUrls: [],
 
     /**

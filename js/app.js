@@ -56,6 +56,14 @@ const App = {
         // Init IndexedDB
         await DB.open();
 
+        // Richiedi storage persistente (protegge da eviction automatica)
+        if (navigator.storage && navigator.storage.persist) {
+            try {
+                const granted = await navigator.storage.persist();
+                console.log('[App] Storage persistente:', granted ? 'concesso' : 'negato');
+            } catch (e) { /* non supportato */ }
+        }
+
         // Init sync: risolvi URL tunnel + avvia indicatore
         await Sync.init();
 

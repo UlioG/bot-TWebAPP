@@ -191,7 +191,8 @@ const Events = {
                         photos: [],
                         completed_surfaces: [],
                         manual_text: null,
-                        stair_subsection: p.stair_subsection || null
+                        stair_subsection: p.stair_subsection || null,
+                        created_at: event.timestamp
                     };
                 }
                 break;
@@ -686,7 +687,8 @@ const Events = {
                             observations: [],
                             photos: [],
                             completed_surfaces: [],
-                            manual_text: null
+                            manual_text: null,
+                            created_at: event.timestamp
                         };
                     }
                 }

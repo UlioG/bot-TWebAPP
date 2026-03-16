@@ -227,5 +227,27 @@ const DB = {
 
     async getUnsyncedPhotos() {
         return this.getByIndex('photos', 'synced', false);
+    },
+
+    /**
+     * Elimina foto dettaglio sincronizzate di un sopralluogo.
+     * Mantiene panoramiche e planimetrie (servono per marker).
+     * @returns {number} numero di foto eliminate
+     */
+    async purgeSyncedDetailPhotos(sopralluogoId) {
+        const photos = await this.getByIndex('photos', 'sopralluogo_id', sopralluogoId);
+        const toPurge = photos.filter(p => p.type === 'dettaglio' && p.synced === true);
+        if (toPurge.length === 0) return 0;
+
+        const tx = this._db.transaction('photos', 'readwrite');
+        const store = tx.objectStore('photos');
+        for (const p of toPurge) {
+            store.delete(p.id);
+        }
+
+        return new Promise((resolve, reject) => {
+            tx.oncomplete = () => resolve(toPurge.length);
+            tx.onerror = () => reject(tx.error);
+        });
     }
 };
