@@ -504,6 +504,27 @@ const Sync = {
     },
 
     /**
+     * Trova la cartella pertinenza per un vano (se appartiene a una pertinenza).
+     * Ritorna il nome folder (identico a bot.py get_pertinenza_path) oppure ''.
+     */
+    _findPertFolderForRoom(sop, roomName) {
+        if (!Array.isArray(sop.pertinenze)) return '';
+        for (const pert of sop.pertinenze) {
+            if (pert && pert.rooms && pert.rooms[roomName]) {
+                // Costruisci nome cartella — identico a _build_pert_folder_name in api_server.py
+                const parts = [pert.type || 'Pertinenza'];
+                if (pert.sub) parts.push(`Sub. ${pert.sub}`);
+                if (pert.numero) parts.push(`N. ${pert.numero}`);
+                if (pert.indirizzo) parts.push(pert.indirizzo);
+                let folder = parts.join(' - ');
+                if (pert.piano) folder += ` (${pert.piano})`;
+                return folder;
+            }
+        }
+        return '';
+    },
+
+    /**
      * Upload singola foto via API HTTP
      */
     async _uploadPhotoToAPI(sop, photo) {
@@ -514,6 +535,12 @@ const Sync = {
         formData.append('room_name', photo.room_name || '');
         formData.append('filename', photo.filename || 'photo.jpg');
         formData.append('is_multi_floor', String(sop.is_multi_floor || false));
+
+        // Pertinenze: aggiungi pert_folder se il vano appartiene a una pertinenza
+        const pertFolder = photo.pert_folder || this._findPertFolderForRoom(sop, photo.room_name);
+        if (pertFolder) {
+            formData.append('pert_folder', pertFolder);
+        }
 
         // Per multi-floor: il piano del vano potrebbe essere diverso
         if (sop.is_multi_floor && sop.rooms && sop.rooms[photo.room_name]) {
@@ -587,6 +614,38 @@ const Sync = {
                 .filter(p => p.type === 'planimetria')
                 .map(p => p.filename)
                 .filter(Boolean);
+        }
+
+        // Arricchisci anche le foto delle pertinenze
+        if (Array.isArray(payload.pertinenze)) {
+            for (const pert of payload.pertinenze) {
+                if (!pert || !pert.rooms) continue;
+                for (const [roomName, room] of Object.entries(pert.rooms)) {
+                    const roomPhotos = photos.filter(p => p.room_name === roomName);
+                    room.panoramic_photos = roomPhotos
+                        .filter(p => p.type === 'panoramica')
+                        .map(p => p.filename)
+                        .filter(Boolean);
+                    const obsList = room.observations || room.obs || [];
+                    if (Array.isArray(obsList)) {
+                        obsList.forEach((obs, i) => {
+                            const photo = roomPhotos.find(p => {
+                                if (p.type !== 'dettaglio') return false;
+                                if (obs.photo_id && p.id === obs.photo_id) return true;
+                                const key = p.observation_key;
+                                if (key && (key === obs.obs_id || key === `obs_${i}`
+                                    || key === String(i) || key === i)) return true;
+                                return false;
+                            });
+                            obs.photo_filename = photo ? photo.filename : null;
+                        });
+                    }
+                    room.planimetria_photos = roomPhotos
+                        .filter(p => p.type === 'planimetria')
+                        .map(p => p.filename)
+                        .filter(Boolean);
+                }
+            }
         }
 
         return payload;
@@ -712,7 +771,7 @@ const Sync = {
         // --- Proprietario assente ---
         const propAssente = sop.proprietario_assente || false;
 
-        return {
+        const payload = {
             id: sop.id,
             building_code: sop.building_code,
             building_address: sop.building_address,
@@ -754,6 +813,23 @@ const Sync = {
             proprietario_assente: propAssente,
             proprietario_assente_note: sop.proprietario_assente_note || ''
         };
+
+        // Debug log: mostra cosa stiamo per inviare
+        const pertRooms = (payload.pertinenze || []).map(p => ({
+            type: p.type, sub: p.sub,
+            rooms: Object.keys(p.rooms || {})
+        }));
+        console.log('[Sync] Payload:', {
+            building_code: payload.building_code,
+            unit_name: payload.unit_name,
+            rooms_count: Object.keys(payload.rooms || {}).length,
+            room_names: Object.keys(payload.rooms || {}),
+            pertinenze_count: (payload.pertinenze || []).length,
+            pertinenze_rooms: pertRooms,
+            operator_id: payload.operator_telegram_id
+        });
+
+        return payload;
     },
 
     /**
