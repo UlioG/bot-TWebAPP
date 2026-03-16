@@ -491,14 +491,14 @@ const Sync = {
                 }
                 msg += `. Master (${result.master_operator_name || '?'}) ha ${result.total_rooms_on_disk || '?'} vani totali.`;
                 if (uploaded > 0) msg += ` ${uploaded} foto caricate.`;
-                if (failed > 0) msg += ` (${failed} foto fallite)`;
-                UI.toast(msg, 5000);
+                if (failed > 0) msg += ` (${failed} foto fallite: ${lastError})`;
+                UI.toast(msg, 8000);
             } else if (result.role === 'master' && result.secondary_rooms && result.secondary_rooms.length > 0) {
                 const secNames = result.secondary_rooms.map(r => r.name).join(', ');
                 let msg = `Sincronizzato: ${result.rooms_saved || 0} vani, ${uploaded} foto.`;
                 msg += ` Vani da altri operatori: ${secNames}`;
-                if (failed > 0) msg += ` (${failed} foto fallite)`;
-                UI.toast(msg, 5000);
+                if (failed > 0) msg += ` (${failed} foto fallite: ${lastError})`;
+                UI.toast(msg, 8000);
             } else {
                 let msg = `Sincronizzato: ${result.rooms_saved || 0} vani, ${uploaded} foto`;
                 if (failed > 0) msg += ` (${failed} foto fallite)`;
