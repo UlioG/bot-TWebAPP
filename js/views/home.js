@@ -162,6 +162,15 @@ const HomeView = {
             });
         });
 
+        // Event: libera spazio foto
+        container.querySelectorAll('.sop-purge-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const sopId = btn.dataset.sopId;
+                await this._showPurgeDialog(sopId);
+            });
+        });
+
         // Event: elimina sopralluogo dal dispositivo (solo se già sincronizzato)
         container.querySelectorAll('.sop-delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -243,7 +252,7 @@ const HomeView = {
             if (pct >= 80) {
                 html += `
                     <div style="margin-top: 8px; font-size: 11px; color: #d32f2f; font-weight: 500;">
-                        ⚠️ Spazio quasi pieno. Elimina i sopralluoghi già sincronizzati (🗑️).
+                        ⚠️ Spazio quasi pieno. Libera spazio foto (📸) sui sopralluoghi sincronizzati.
                     </div>`;
             }
 
@@ -272,6 +281,86 @@ const HomeView = {
     },
 
     /**
+     * Mostra dialog di conferma per purge foto con statistiche reali.
+     */
+    async _showPurgeDialog(sopId) {
+        try {
+            const stats = await DB.getPhotoStats(sopId);
+            if (stats.count === 0) {
+                UI.toast('Nessuna foto presente sul dispositivo');
+                return;
+            }
+
+            const formatSize = (bytes) => {
+                if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+                if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+                return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+            };
+
+            const sizeStr = formatSize(stats.totalBytes);
+            let detailLines = [];
+            if (stats.panoramiche > 0) detailLines.push(`${stats.panoramiche} panoramiche`);
+            if (stats.dettaglio > 0) detailLines.push(`${stats.dettaglio} dettaglio`);
+            if (stats.planimetrie > 0) detailLines.push(`${stats.planimetrie} planimetrie`);
+
+            const msg = `Verranno eliminate ${stats.count} foto (${sizeStr}) dal dispositivo.\n\n` +
+                `${detailLines.join(', ')}.\n\n` +
+                `Le note e i dati del sopralluogo restano.\n` +
+                `Le foto restano sul server.\n\n` +
+                `⚠️ ATTENZIONE: Dopo la liberazione delle foto, questo sopralluogo NON potrà essere ri-sincronizzato.\n` +
+                `Se dovrai tornare sullo stesso edificio, apri un nuovo sopralluogo.\n\n` +
+                `Verifica sul server che le foto siano presenti prima di procedere!`;
+
+            UI.confirmAction(msg, () => this._purgePhotos(sopId));
+        } catch (err) {
+            console.error('Errore dialog purge:', err);
+            UI.toast('Errore nel calcolo spazio');
+        }
+    },
+
+    /** Guard anti double-click per purge */
+    _purging: false,
+
+    /**
+     * Esegue il purge di tutte le foto di un sopralluogo.
+     * Imposta flag photosPurged sul sopralluogo.
+     */
+    async _purgePhotos(sopId) {
+        if (this._purging) return;
+        this._purging = true;
+        try {
+            const result = await DB.purgeAllPhotos(sopId);
+            if (result.count === 0) {
+                UI.toast('Nessuna foto da eliminare');
+                return;
+            }
+
+            // Imposta flag sul sopralluogo
+            const sop = await DB.getSopralluogo(sopId);
+            if (sop) {
+                sop.photosPurged = true;
+                await DB.saveSopralluogo(sop);
+            }
+
+            const formatSize = (bytes) => {
+                if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+                if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+                return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+            };
+
+            UI.toast(`${result.count} foto eliminate (${formatSize(result.totalBytes)} liberati)`, 4000);
+            // Re-render immediato + refresh barra dopo 1s (IndexedDB rilascia spazio con ritardo)
+            this.render(document.getElementById('app-content'));
+            setTimeout(() => this._renderStorageBar(), 1000);
+        } catch (err) {
+            console.error('Errore purge foto:', err);
+            UI.toast('Errore durante l\'eliminazione delle foto');
+        } finally {
+            this._purging = false;
+        }
+    },
+
+    /**
      * Costruisce HTML cella sopralluogo con bottone nascondi o ripristina
      */
     _buildSopCell(sop, icon, showDetails, isHidden) {
@@ -291,6 +380,9 @@ const HomeView = {
         } else {
             subtitle = `${floorLabel} | ${roomCount} vani`;
         }
+        if (sop.photosPurged) {
+            subtitle += ' | 📸 Foto liberate';
+        }
 
         // Bottoni azione: nascondi/ripristina + elimina (solo se sincronizzato)
         let actionBtn = '';
@@ -298,6 +390,10 @@ const HomeView = {
             actionBtn = `<button class="sop-restore-btn" data-sop-id="${esc(sop.id)}" title="Ripristina">🔄</button>`;
         } else {
             actionBtn = `<button class="sop-hide-btn" data-sop-id="${esc(sop.id)}" title="Nascondi">🙈</button>`;
+        }
+        // Libera spazio foto: solo per sopralluoghi sincronizzati e con foto
+        if (sop.synced && !sop.photosPurged) {
+            actionBtn += `<button class="sop-purge-btn" data-sop-id="${esc(sop.id)}" title="Libera spazio foto">📸</button>`;
         }
         // Cestino: solo per sopralluoghi già sincronizzati
         if (sop.synced) {

@@ -1115,7 +1115,7 @@ const WizardView = {
             this.obs.attributes.length > 0 ? ['Attributi', this.obs.attributes.join(', ')] : null,
             this.obs.prosecutions.length > 0 ? ['Prosegue', this.obs.prosecutions.join(', ')] : null,
             this.obs.notes ? ['Note', this.obs.notes] : null,
-            ['Foto', this.obs.photo_id ? 'Si\'' : 'No']
+            ['Foto', this.obs.photo_id ? (this._sop && this._sop.photosPurged ? '\u2705 Sul server' : 'Si\'') : 'No']
         ].filter(Boolean);
 
         for (const [label, value] of rows) {

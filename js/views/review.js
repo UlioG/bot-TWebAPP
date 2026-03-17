@@ -199,10 +199,15 @@ const ReviewView = {
         // Bottoni azione
         html += `<div style="padding: 16px; display:flex; flex-direction:column; gap:8px;">`;
 
-        // Fase E: secondario non puo' generare DOCX; pre-sync guard
+        // Fase E: secondario non puo' generare DOCX; pre-sync guard; post-purge guard
         if (sop.sync_role === 'secondary') {
             html += `<div style="background: #fff8e1; border: 1px solid #ffc107; border-radius: 8px; padding: 12px; text-align:center;">
                 <div style="font-size: 13px;">\u26A0\uFE0F Solo il master puo\' generare il verbale.</div>
+            </div>`;
+        } else if (sop.photosPurged) {
+            // Foto liberate: dati sul server ma ri-sync bloccato — DOCX generabile dal bot direttamente
+            html += `<div style="background: #e8f5e9; border: 1px solid #81c784; border-radius: 8px; padding: 12px; text-align:center;">
+                <div style="font-size: 13px;">\u2705 Dati sincronizzati e foto sul server. Genera il verbale dal bot Telegram.</div>
             </div>`;
         } else if (!sop.synced || !sop.sync_role) {
             // Mai sincronizzato o ruolo non assegnato — non mostrare DOCX, potrebbe diventare secondario

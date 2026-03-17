@@ -232,8 +232,11 @@ const Photos = {
         for (const photo of photos) {
             let thumbUrl = '';
             if (photo.thumbnail) {
-                thumbUrl = URL.createObjectURL(photo.thumbnail);
-                this._activeObjectUrls.push(thumbUrl);
+                const blob = this._toBlob(photo.thumbnail);
+                if (blob) {
+                    thumbUrl = URL.createObjectURL(blob);
+                    this._activeObjectUrls.push(thumbUrl);
+                }
             }
             html += `
                 <div class="photo-thumb" data-photo-id="${photo.id}">

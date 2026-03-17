@@ -769,7 +769,9 @@ const RoomsView = {
                     if (typeof photo.thumbnail === 'string') {
                         url = photo.thumbnail;
                     } else {
-                        url = URL.createObjectURL(photo.thumbnail);
+                        const blob = (typeof Photos !== 'undefined' && Photos._toBlob) ? Photos._toBlob(photo.thumbnail) : photo.thumbnail;
+                        if (!blob) continue;
+                        url = URL.createObjectURL(blob);
                         if (typeof Photos !== 'undefined' && Photos._activeObjectUrls) Photos._activeObjectUrls.push(url);
                     }
                     gridHtml += `<div class="photo-thumb" data-photo-id="${photo.id}">

@@ -313,8 +313,14 @@ const MarkerView = {
         const photo = this._photos[index];
         if (!photo || !photo.blob) return;
 
+        // Sicurezza ArrayBuffer→Blob (IndexedDB su iOS salva ArrayBuffer)
+        let safeBlob = photo.blob;
+        if (photo.blob instanceof ArrayBuffer || (photo.blob && photo.blob.byteLength !== undefined && !(photo.blob instanceof Blob))) {
+            safeBlob = new Blob([photo.blob], { type: 'image/jpeg' });
+        }
+
         const img = new Image();
-        const url = URL.createObjectURL(photo.blob);
+        const url = URL.createObjectURL(safeBlob);
         img.onload = () => {
             URL.revokeObjectURL(url);
             this._img = img;
@@ -634,6 +640,7 @@ const MarkerView = {
 
         // Auto-advance al prossimo non piazzato
         setTimeout(() => {
+            if (!this._canvas) return; // Guard: utente potrebbe aver chiuso il marker tool
             const nextUnplaced = this._defects.findIndex(d => d.x === null);
             if (nextUnplaced >= 0) {
                 this._selectDefect(nextUnplaced);
@@ -724,48 +731,62 @@ const MarkerView = {
     // ========== STATIC RENDER (per export DOCX) ==========
 
     /**
-     * Renderizza marker su una foto panoramica e restituisce un Blob JPEG
-     * Usato dal generatore DOCX per creare la versione _MARKED
-     * @param {Blob} photoBlob - foto originale
-     * @param {Object} markers - {"1": {x, y, photo_id}, ...}
+     * Renderizza marker su una foto panoramica e restituisce un Blob JPEG.
+     * Canvas limitato a 2048px per proteggere la RAM su iPad.
+     * Usato dal sync per creare la versione _MARKED (per DOCX).
+     * @param {Blob|ArrayBuffer} photoBlob - foto originale (Blob o ArrayBuffer da IndexedDB)
+     * @param {Object} markers - {obs_id: {x, y, photo_id, num}, ...}
      * @param {string} photoFilename - filename della foto corrente
-     * @returns {Promise<Blob>} - foto con marker disegnati
+     * @returns {Promise<Blob>} - foto con marker disegnati (max 2048px)
      */
     renderMarkersOnPhoto(photoBlob, markers, photoFilename) {
+        const RENDER_MAX = 2048; // Cap per protezione RAM iPad
+
         return new Promise((resolve, reject) => {
+            // Sicurezza ArrayBuffer→Blob (IndexedDB su iOS salva ArrayBuffer)
+            let safeBlob = photoBlob;
+            if (photoBlob instanceof ArrayBuffer || (photoBlob && photoBlob.byteLength !== undefined && !(photoBlob instanceof Blob))) {
+                safeBlob = new Blob([photoBlob], { type: 'image/jpeg' });
+            }
+
             const img = new Image();
-            const url = URL.createObjectURL(photoBlob);
+            const url = URL.createObjectURL(safeBlob);
 
             img.onload = () => {
                 URL.revokeObjectURL(url);
-
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-
-                // Disegna foto originale
-                ctx.drawImage(img, 0, 0);
 
                 // Trova marker per questa foto
                 const relevantMarkers = [];
                 for (const [key, coords] of Object.entries(markers)) {
                     if (coords.photo_id === photoFilename || (!coords.photo_id && Object.keys(markers).length > 0)) {
-                        // Usa num (display number) se presente, altrimenti fallback alla chiave
                         const displayId = coords.num != null ? coords.num : key;
                         relevantMarkers.push({ id: displayId, ...coords });
                     }
                 }
 
                 if (relevantMarkers.length === 0) {
-                    // Nessun marker su questa foto, ritorna originale
-                    resolve(photoBlob);
+                    resolve(safeBlob);
                     return;
                 }
 
+                // Calcola dimensioni canvas (cap a RENDER_MAX per protezione RAM)
+                let w = img.width;
+                let h = img.height;
+                if (w > RENDER_MAX || h > RENDER_MAX) {
+                    const ratio = Math.min(RENDER_MAX / w, RENDER_MAX / h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+
+                // Disegna foto ridimensionata
+                ctx.drawImage(img, 0, 0, w, h);
+
                 // Dimensioni marker (3.9% del lato minore, minimo 31px — come bot Pillow)
-                const w = img.width;
-                const h = img.height;
                 const radius = Math.max(Math.round(Math.min(w, h) * 0.039), 31);
                 const fontSize = Math.round(radius * 0.85);
                 const borderWidth = 3;
@@ -800,7 +821,7 @@ const MarkerView = {
 
             img.onerror = () => {
                 URL.revokeObjectURL(url);
-                resolve(photoBlob); // fallback: ritorna originale
+                resolve(safeBlob); // fallback: ritorna originale
             };
 
             img.src = url;

@@ -230,24 +230,51 @@ const DB = {
     },
 
     /**
-     * Elimina foto dettaglio sincronizzate di un sopralluogo.
-     * Mantiene panoramiche e planimetrie (servono per marker).
-     * @returns {number} numero di foto eliminate
+     * Elimina TUTTE le foto di un sopralluogo da IndexedDB.
+     * Panoramiche, dettaglio, planimetrie — tutto.
+     * Note, osservazioni, dati vano restano intatti (sono nel sopralluogo).
+     * Da usare SOLO dopo conferma esplicita dell'operatore.
+     * @returns {Object} { count, totalBytes } - foto eliminate e spazio liberato
      */
-    async purgeSyncedDetailPhotos(sopralluogoId) {
+    async purgeAllPhotos(sopralluogoId) {
         const photos = await this.getByIndex('photos', 'sopralluogo_id', sopralluogoId);
-        const toPurge = photos.filter(p => p.type === 'dettaglio' && p.synced === true);
-        if (toPurge.length === 0) return 0;
+        if (photos.length === 0) return { count: 0, totalBytes: 0 };
+
+        let totalBytes = 0;
+        for (const p of photos) {
+            if (p.blob) totalBytes += (p.blob.size || p.blob.byteLength || 0);
+            if (p.thumbnail) totalBytes += (p.thumbnail.size || p.thumbnail.byteLength || 0);
+        }
 
         const tx = this._db.transaction('photos', 'readwrite');
         const store = tx.objectStore('photos');
-        for (const p of toPurge) {
+        for (const p of photos) {
             store.delete(p.id);
         }
 
         return new Promise((resolve, reject) => {
-            tx.oncomplete = () => resolve(toPurge.length);
+            tx.oncomplete = () => resolve({ count: photos.length, totalBytes });
             tx.onerror = () => reject(tx.error);
         });
+    },
+
+    /**
+     * Conta foto e calcola spazio occupato per un sopralluogo.
+     * @returns {Object} { count, totalBytes, panoramiche, dettaglio, planimetrie }
+     */
+    async getPhotoStats(sopralluogoId) {
+        const photos = await this.getByIndex('photos', 'sopralluogo_id', sopralluogoId);
+        let totalBytes = 0;
+        let panoramiche = 0, dettaglio = 0, planimetrie = 0;
+
+        for (const p of photos) {
+            if (p.blob) totalBytes += (p.blob.size || p.blob.byteLength || 0);
+            if (p.thumbnail) totalBytes += (p.thumbnail.size || p.thumbnail.byteLength || 0);
+            if (p.type === 'panoramica') panoramiche++;
+            else if (p.type === 'dettaglio') dettaglio++;
+            else if (p.type === 'planimetria') planimetrie++;
+        }
+
+        return { count: photos.length, totalBytes, panoramiche, dettaglio, planimetrie };
     }
 };
