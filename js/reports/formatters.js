@@ -586,9 +586,7 @@ function generateChiusuraText(sop) {
     const finalTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     return `Il giorno ${finalDate} alle ore ${finalTime} si concludono le operazioni di sopralluogo. ` +
-        `Il presente verbale, composto da n.     pagine e pi\u00f9 allegati fotografici, viene letto e sottoscritto. ` +
-        `La sottoscrizione attesta la presenza al sopralluogo e la presa visione del contenuto alla data odierna; ` +
-        `eventuali osservazioni sono riportate nello spazio dedicato. La sottoscrizione non costituisce rinuncia ad alcun diritto n\u00e8 riconoscimento di responsabilit\u00e0.`;
+        `Il presente verbale, composto da n.     pagine e pi\u00f9 allegati fotografici, viene letto e sottoscritto.`;
 }
 
 
