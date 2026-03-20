@@ -461,67 +461,7 @@ function generateRoomText(observations) {
 function generateCappelloText(sop) {
     if (sop.custom_cappello) return sop.custom_cappello;
 
-    const lines = [];
-
-    // Data e ora dal start_time
-    let dateStr = '';
-    let timeStr = '';
-    if (sop.start_time) {
-        try {
-            const dt = new Date(sop.start_time);
-            if (!isNaN(dt.getTime())) {
-                const dd = String(dt.getDate()).padStart(2, '0');
-                const mm = String(dt.getMonth() + 1).padStart(2, '0');
-                const yyyy = dt.getFullYear();
-                dateStr = `${dd}/${mm}/${yyyy}`;
-                timeStr = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
-            }
-        } catch (e) { /* fallback sotto */ }
-    }
-    if (!dateStr) {
-        const now = new Date();
-        const dd = String(now.getDate()).padStart(2, '0');
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const yyyy = now.getFullYear();
-        dateStr = `${dd}/${mm}/${yyyy}`;
-        timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    }
-
-    const buildingAddress = sop.building_address || '___';
-    const buildingCode = sop.building_code || '___';
-
-    // Riga 1: apertura operazioni
-    lines.push(`Il giorno ${dateStr} alle ore ${timeStr} si aprono le operazioni di sopralluogo con finalit\u00e0 descrittive e fotografiche, presso il fabbricato sito in ${buildingAddress}, con codice identificativo ${buildingCode}.`);
-    lines.push('');
-
-    // Riga 2: Metro C
-    const metroTech = _getAttendee(sop, 'metro_tech');
-    let line2 = `Sono presenti per Metro C S.c.p.A.: ${metroTech}`;
-    const metroColl = _getAttendee(sop, 'metro_coll');
-    if (metroColl) {
-        line2 += ` con i collaboratori ${metroColl}`;
-    }
-    lines.push(line2);
-    lines.push('');
-
-    // Riga 3: Roma Metropolitane (solo se rm_presente)
-    if (sop.rm_presente !== false) {
-        const rm = _getAttendee(sop, 'rm');
-        if (rm) {
-            lines.push(`Sono presenti per Roma Metropolitane: ${rm}`);
-            lines.push('');
-        }
-    }
-
-    // Riga 4: Proprietario/Amministratore
-    const isPC = _isPartiComuni(sop);
-    const ownerLabel = isPC
-        ? "l'Amministratore/Delegato"
-        : "la Propriet\u00e0/Comproprietario/Affittuario/Delegato";
-    const ownerStr = _getOwnerString(sop);
-    lines.push(`Sono presenti per ${ownerLabel}: ${ownerStr}`);
-
-    return lines.join('\n');
+    return 'È presente per la Proprietà (xxxx): xxxxxxxx';
 }
 
 /** Helper: estrai attendee come stringa */
@@ -578,15 +518,7 @@ function _isPartiComuni(sop) {
 function generateChiusuraText(sop) {
     if (sop.custom_chiusura) return sop.custom_chiusura;
 
-    const now = new Date();
-    const dd = String(now.getDate()).padStart(2, '0');
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const yyyy = now.getFullYear();
-    const finalDate = `${dd}/${mm}/${yyyy}`;
-    const finalTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    return `Il giorno ${finalDate} alle ore ${finalTime} si concludono le operazioni di sopralluogo. ` +
-        `Il presente verbale, composto da n.     pagine e pi\u00f9 allegati fotografici, viene letto e sottoscritto.`;
+    return 'Campo note:\nIl presente verbale viene letto e sottoscritto.';
 }
 
 
